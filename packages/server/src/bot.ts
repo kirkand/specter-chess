@@ -167,7 +167,12 @@ function minimax(
  * The destination of the human's predicted best move is the most valuable square
  * to reveal — that's where a hidden black piece is most likely to interfere.
  */
-export function getBotSpyglassTarget(humanPerspectiveFen: string): Square | null {
+export function getBotSpyglassTarget(
+  humanPerspectiveFen: string,
+  botPerspectiveFen: string,
+  trueFen: string,
+  recentSquares: string[] = [],
+): Square | null {
   const chess = new Chess();
   try {
     chess.load(humanPerspectiveFen, { skipValidation: true });
@@ -178,16 +183,48 @@ export function getBotSpyglassTarget(humanPerspectiveFen: string): Square | null
   const moves = chess.moves({ verbose: true });
   if (moves.length === 0) return null;
 
-  // Score each candidate move as white (the human's color)
-  const scored = moves.map(m => {
-    chess.move(m);
-    const score = evaluate(chess, 'w');
-    chess.undo();
-    return { m, score };
-  });
+  // Squares the bot already knows about (occupied in its own perspective) —
+  // spying there reveals nothing new.
+  const botPerspective = new Chess();
+  try {
+    botPerspective.load(botPerspectiveFen, { skipValidation: true });
+  } catch {
+    return null;
+  }
+  const knownSquares = new Set<string>();
+  for (const row of botPerspective.board()) {
+    for (const cell of row) {
+      if (cell) knownSquares.add(cell.square);
+    }
+  }
+
+  // Also exclude squares occupied by the bot's own pieces on the true board.
+  const trueBoard = new Chess(trueFen);
+  for (const row of trueBoard.board()) {
+    for (const cell of row) {
+      if (cell && cell.color === 'b') knownSquares.add(cell.square);
+    }
+  }
+
+  const recentSet = new Set(recentSquares);
+
+  // Score human moves, keeping only those whose destination is uncertain to the
+  // bot and hasn't been spied on in the last 3 turns.
+  const scored = moves
+    .filter(m => !knownSquares.has(m.to) && !recentSet.has(m.to))
+    .map(m => {
+      chess.move(m);
+      const score = evaluate(chess, 'w');
+      chess.undo();
+      return { m, score };
+    });
+
+  if (scored.length === 0) return null;
   scored.sort((a, b) => b.score - a.score);
 
-  return scored[0].m.to as Square;
+  // Pick randomly from the top 3 candidates to avoid always choosing the same square.
+  const pool = scored.slice(0, 3);
+  return pool[Math.floor(Math.random() * pool.length)].m.to as Square;
 }
 
 /**

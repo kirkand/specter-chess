@@ -72,6 +72,7 @@ interface GameSession {
   botDifficulty: BotDifficulty | null;
   botMoveHandle: ReturnType<typeof setTimeout> | null;
   gameStartTime: number | null;
+  botSpyglassHistory: string[];
 }
 
 const sessions = new Map<string, GameSession>();
@@ -190,9 +191,10 @@ function scheduleBotMove(gameId: string, session: GameSession) {
     // ── Spyglass phase ────────────────────────────────────────────────────────
     let moveFen = session.game.getBotPerspectiveFen();
 
-    const spyTarget = getBotSpyglassTarget(session.game.getHumanPerspectiveFen());
+    const spyTarget = getBotSpyglassTarget(session.game.getHumanPerspectiveFen(), moveFen, session.game.getFen(), session.botSpyglassHistory);
 
     if (spyTarget) {
+      session.botSpyglassHistory = [...session.botSpyglassHistory.slice(-2), spyTarget];
       const spyResult = session.game.useSpyglass(botColor, spyTarget);
       // Notify the human player of the bot's spyglass usage
       if (humanSocketId) io.to(humanSocketId).emit('opponent_spyglass', spyTarget);
@@ -346,6 +348,7 @@ io.on('connection', socket => {
       botDifficulty: null,
       botMoveHandle: null,
       gameStartTime: null,
+      botSpyglassHistory: [],
     };
     sessions.set(gameId, session);
     openGames.set(gameId, { createdAt: Date.now(), timeControl });
@@ -415,6 +418,7 @@ io.on('connection', socket => {
       botDifficulty: difficulty,
       botMoveHandle: null,
       gameStartTime: null,
+      botSpyglassHistory: [],
     };
 
     sessions.set(gameId, session);

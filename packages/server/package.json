@@ -2,7 +2,7 @@
   "name": "@specter-chess/server",
   "version": "0.0.1",
   "scripts": {
-    "dev": "NODE_OPTIONS=--no-experimental-warnings ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
