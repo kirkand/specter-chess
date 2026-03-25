@@ -13,7 +13,7 @@
     "jsx": "react-jsx",
     "strict": true,
     "paths": {
-      "@pirate-chess/shared": ["../shared/src/index.ts"]
+      "@specter-chess/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"]
