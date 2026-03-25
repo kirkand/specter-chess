@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { Filter } from 'bad-words';
+import Filter from 'bad-words';
 import {
   SpecterChessGame,
   type Color,
