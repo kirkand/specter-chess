@@ -235,19 +235,26 @@ export function GameBoard({
   // ── Clocks ──────────────────────────────────────────────────────────────────
   const opponentColor: Color = playerColor === 'white' ? 'black' : 'white';
   const [displayedTime, setDisplayedTime] = useState(view.timeRemainingMs);
+  const turnStartedAtRef = useRef<number>(Date.now());
+  const serverTimeAtTurnStartRef = useRef(view.timeRemainingMs);
 
-  // Sync from server on each move
-  useEffect(() => { setDisplayedTime(view.timeRemainingMs); }, [view.timeRemainingMs]);
+  // When server sends updated times, record the wall-clock start of this turn
+  useEffect(() => {
+    setDisplayedTime(view.timeRemainingMs);
+    serverTimeAtTurnStartRef.current = view.timeRemainingMs;
+    turnStartedAtRef.current = Date.now();
+  }, [view.timeRemainingMs]);
 
-  // Tick the active player's clock client-side between moves
+  // Tick the active player's clock using wall-clock elapsed time
   useEffect(() => {
     if (view.gameOver) return;
     const activeColor: Color = view.isMyTurn ? playerColor : opponentColor;
     const interval = setInterval(() => {
-      setDisplayedTime(prev => ({
-        ...prev,
-        [activeColor]: Math.max(0, prev[activeColor] - 100),
-      }));
+      const elapsed = Date.now() - turnStartedAtRef.current;
+      setDisplayedTime({
+        ...serverTimeAtTurnStartRef.current,
+        [activeColor]: Math.max(0, serverTimeAtTurnStartRef.current[activeColor] - elapsed),
+      });
     }, 100);
     return () => clearInterval(interval);
   }, [view.isMyTurn, view.gameOver, playerColor, opponentColor]);
