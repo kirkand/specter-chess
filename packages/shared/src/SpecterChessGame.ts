@@ -254,6 +254,83 @@ export class SpecterChessGame {
   }
 
   /**
+   * Returns a FEN from the human's (white's) perspective:
+   * white pieces at their true positions, black pieces at their stale snapshot
+   * positions (what white last saw before black's most recent move).
+   * Falls back to the true FEN if the synthetic position is rejected by chess.js.
+   */
+  getHumanPerspectiveFen(): string {
+    const pieceMap: Record<string, string> = {};
+
+    // True white piece positions (uppercase FEN chars)
+    for (const row of this.chess.board()) {
+      for (const cell of row) {
+        if (cell && cell.color === 'w') {
+          pieceMap[cell.square] = cell.type.toUpperCase();
+        }
+      }
+    }
+
+    // Black pieces at stale snapshot positions (lowercase FEN chars)
+    // Skip any square already occupied by a white piece
+    for (const { square, piece } of this.opponentSnapshot['white']) {
+      if (!pieceMap[square]) {
+        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type];
+      }
+    }
+
+    // Override/add confirmed black piece positions (revealed by capture or spyglass)
+    for (const [square, piece] of this.confirmedPositions['white']) {
+      if (piece.color === 'black' && !pieceMap[square]) {
+        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type];
+      }
+    }
+
+    // Build piece placement string (rank 8 down to rank 1)
+    let placement = '';
+    for (let rank = 8; rank >= 1; rank--) {
+      let empty = 0;
+      for (const file of 'abcdefgh') {
+        const sq = `${file}${rank}`;
+        const p = pieceMap[sq];
+        if (p) {
+          if (empty > 0) { placement += empty; empty = 0; }
+          placement += p;
+        } else {
+          empty++;
+        }
+      }
+      if (empty > 0) placement += empty;
+      if (rank > 1) placement += '/';
+    }
+
+    // Approximate castling rights from piece positions
+    const blackSnap = this.opponentSnapshot['white'];
+    const bKingE8 = blackSnap.some(p => p.square === 'e8' && p.piece.type === 'king');
+    const bRookH8 = blackSnap.some(p => p.square === 'h8' && p.piece.type === 'rook');
+    const bRookA8 = blackSnap.some(p => p.square === 'a8' && p.piece.type === 'rook');
+    const wKingE1 = pieceMap['e1'] === 'K';
+    const wRookH1 = pieceMap['h1'] === 'R';
+    const wRookA1 = pieceMap['a1'] === 'R';
+
+    let castling = '';
+    if (wKingE1 && wRookH1) castling += 'K';
+    if (wKingE1 && wRookA1) castling += 'Q';
+    if (bKingE8 && bRookH8) castling += 'k';
+    if (bKingE8 && bRookA8) castling += 'q';
+    if (!castling) castling = '-';
+
+    const fen = `${placement} w ${castling} - 0 1`;
+
+    try {
+      new Chess(fen);
+      return fen;
+    } catch {
+      return this.chess.fen();
+    }
+  }
+
+  /**
    * Attempt a move for the given player.
    * Returns true if the move was valid and executed, false otherwise.
    */

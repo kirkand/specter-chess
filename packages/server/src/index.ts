@@ -188,10 +188,9 @@ function scheduleBotMove(gameId: string, session: GameSession) {
     const humanSocketId = session.sockets.white;
 
     // ── Spyglass phase ────────────────────────────────────────────────────────
-    let perspectiveFen = session.game.getBotPerspectiveFen();
-    let moveFen = perspectiveFen;
+    let moveFen = session.game.getBotPerspectiveFen();
 
-    const spyTarget = getBotSpyglassTarget(perspectiveFen);
+    const spyTarget = getBotSpyglassTarget(session.game.getHumanPerspectiveFen());
 
     if (spyTarget) {
       const spyResult = session.game.useSpyglass(botColor, spyTarget);

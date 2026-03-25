@@ -160,45 +160,34 @@ function minimax(
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Returns a square the bot should spy on: a square the human's pieces could
- * plausibly have moved to (reachable from their snapshot positions) that appears
- * empty in the bot's perspective FEN — meaning the bot doesn't know if it's
- * actually occupied or not.
+ * Returns the square the bot should spy on.
+ *
+ * Strategy: simulate the human's decision-making by scoring all their legal
+ * moves from their own perspective FEN (true white pieces + stale black pieces).
+ * The destination of the human's predicted best move is the most valuable square
+ * to reveal — that's where a hidden black piece is most likely to interfere.
  */
-export function getBotSpyglassTarget(perspectiveFen: string): Square | null {
-  const perspective = new Chess(perspectiveFen);
-
-  // Flip the turn to white so we can compute white's legal moves from their
-  // snapshot positions. skipValidation handles cases where the resulting FEN
-  // would be rejected (e.g. a king appears in check due to stale positions).
-  const parts = perspectiveFen.split(' ');
-  parts[1] = 'w';
-  parts[3] = '-'; // clear en passant target
-  const analysisFen = parts.join(' ');
-
-  const analysis = new Chess();
-  let whiteMoves: ReturnType<typeof analysis.moves>;
+export function getBotSpyglassTarget(humanPerspectiveFen: string): Square | null {
+  const chess = new Chess();
   try {
-    analysis.load(analysisFen, { skipValidation: true });
-    whiteMoves = analysis.moves({ verbose: true });
+    chess.load(humanPerspectiveFen, { skipValidation: true });
   } catch {
     return null;
   }
 
-  // Collect destination squares that appear empty in the bot's perspective —
-  // these are squares the human could have moved to but the bot can't see.
-  const seen = new Set<string>();
-  const candidates: string[] = [];
-  for (const m of whiteMoves) {
-    if (seen.has(m.to)) continue;
-    seen.add(m.to);
-    if (!perspective.get(m.to as Parameters<typeof perspective.get>[0])) {
-      candidates.push(m.to);
-    }
-  }
+  const moves = chess.moves({ verbose: true });
+  if (moves.length === 0) return null;
 
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)] as Square;
+  // Score each candidate move as white (the human's color)
+  const scored = moves.map(m => {
+    chess.move(m);
+    const score = evaluate(chess, 'w');
+    chess.undo();
+    return { m, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  return scored[0].m.to as Square;
 }
 
 /**
