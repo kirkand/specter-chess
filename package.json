@@ -1,0 +1,8 @@
+{
+  "name": "specter-chess",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "pnpm --parallel --filter server --filter client dev"
+  }
+}

@@ -1,0 +1,57 @@
+<svg viewBox="0 0 220 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="220" height="170" rx="10" fill="#0f172a"/>
+
+  <!-- 3×3 board, 40px squares, left-aligned -->
+  <!-- Row 0 -->
+  <rect x="18" y="18" width="40" height="40" fill="#f0d9b5"/>
+  <rect x="58" y="18" width="40" height="40" fill="#b58863"/>
+  <rect x="98" y="18" width="40" height="40" fill="#f0d9b5"/>
+  <!-- Row 1 -->
+  <rect x="18" y="58" width="40" height="40" fill="#b58863"/>
+  <rect x="58" y="58" width="40" height="40" fill="#f0d9b5"/>
+  <rect x="98" y="58" width="40" height="40" fill="#b58863"/>
+  <!-- Row 2 -->
+  <rect x="18" y="98" width="40" height="40" fill="#f0d9b5"/>
+  <rect x="58" y="98" width="40" height="40" fill="#b58863"/>
+  <rect x="98" y="98" width="40" height="40" fill="#f0d9b5"/>
+
+  <!-- Ghost black knight at (col=1, row=1) – sepia tint, low opacity -->
+  <text x="78" y="82" text-anchor="middle" dominant-baseline="middle"
+        font-size="32" fill="#c8a060" opacity="0.45" font-family="serif">♞</text>
+
+  <!-- Dashed arrow from center heading to top-right -->
+  <path d="M 84 62 C 95 44 106 28 112 22"
+        stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,3.5" fill="none" opacity="0.7"/>
+  <!-- Arrowhead at ~(112,22) pointing up-right -->
+  <polygon points="118,15 106,20 112,30" fill="#94a3b8" opacity="0.7"/>
+
+  <!-- Fog overlay on (col=2, row=0) -->
+  <rect x="98" y="18" width="40" height="40" fill="#060d1c" opacity="0.88" rx="1"/>
+  <!-- Question mark -->
+  <text x="118" y="38" text-anchor="middle" dominant-baseline="middle"
+        font-size="24" fill="#475569" font-weight="bold" font-family="sans-serif">?</text>
+
+  <!-- Thin board border -->
+  <rect x="18" y="18" width="120" height="120" fill="none" stroke="#1e2a3a" stroke-width="1"/>
+
+  <!-- Right-side annotation: crossed-out eye -->
+  <g transform="translate(158,58)">
+    <!-- Eye outline -->
+    <path d="M 0 10 Q 22 -10 44 10 Q 22 30 0 10 Z"
+          stroke="#374151" stroke-width="2" fill="none"/>
+    <!-- Pupil -->
+    <circle cx="22" cy="10" r="7" stroke="#374151" stroke-width="2" fill="none"/>
+    <circle cx="22" cy="10" r="3" fill="#374151" opacity="0.5"/>
+    <!-- Red slash -->
+    <line x1="2" y1="28" x2="42" y2="-6"
+          stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+  </g>
+
+  <!-- Annotation label -->
+  <text x="180" y="96" text-anchor="middle" font-size="11" fill="#94a3b8"
+        font-family="sans-serif" font-weight="600">HIDDEN</text>
+
+  <!-- Bottom caption -->
+  <text x="110" y="153" text-anchor="middle" font-size="9.5" fill="#475569"
+        font-family="sans-serif">You see 1 move behind</text>
+</svg>

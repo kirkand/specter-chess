@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Drop shadow for depth -->
+  <line x1="21" y1="22" x2="30" y2="31" stroke="rgba(0,0,0,0.35)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Wooden handle (mahogany) -->
+  <line x1="19" y1="19" x2="29" y2="29" stroke="#2C0F00" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="19" y1="19" x2="29" y2="29" stroke="#7B3310" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Wood grain highlight -->
+  <line x1="18.5" y1="20" x2="28" y2="29.5" stroke="#A0522D" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Brass collar -->
+  <circle cx="17.2" cy="17.2" r="3.2" fill="#7A5900"/>
+  <circle cx="17.2" cy="17.2" r="2.4" fill="#B8860B"/>
+  <circle cx="17.2" cy="17.2" r="1.6" fill="#DAA520"/>
+
+  <!-- Outer frame shadow -->
+  <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="1.5"/>
+
+  <!-- Brass frame outer edge -->
+  <circle cx="12" cy="12" r="10.2" fill="none" stroke="#5C3D00" stroke-width="1"/>
+  <!-- Main brass frame -->
+  <circle cx="12" cy="12" r="9.8" fill="none" stroke="#B8860B" stroke-width="3.5"/>
+  <!-- Brass frame highlight (inner rim) -->
+  <circle cx="12" cy="12" r="8.1" fill="none" stroke="#F0C040" stroke-width="0.8"/>
+
+  <!-- Lens — aged amber glass -->
+  <circle cx="12" cy="12" r="7.8" fill="rgba(195,155,65,0.22)"/>
+
+  <!-- Glass reflections for that old curved-glass look -->
+  <ellipse cx="9" cy="8.5" rx="3.2" ry="1.6" fill="rgba(255,248,200,0.38)" transform="rotate(-40 9 8.5)"/>
+  <ellipse cx="15" cy="15.5" rx="1.4" ry="0.7" fill="rgba(255,248,200,0.18)" transform="rotate(-40 15 15.5)"/>
+</svg>

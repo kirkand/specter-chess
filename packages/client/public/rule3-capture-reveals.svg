@@ -1,0 +1,80 @@
+<svg viewBox="0 0 220 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="burstGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#f59e0b" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="220" height="170" rx="10" fill="#0f172a"/>
+
+  <!-- Three board squares in a row, 46px each, centered vertically -->
+  <!-- Square A (attacker origin) — light square at x=18 -->
+  <rect x="18" y="38" width="46" height="46" fill="#f0d9b5"/>
+  <!-- Square B (empty middle) -->
+  <rect x="64" y="38" width="46" height="46" fill="#b58863"/>
+  <!-- Square C (target — hidden piece) — light square -->
+  <rect x="110" y="38" width="46" height="46" fill="#f0d9b5"/>
+
+  <!-- Second row for context -->
+  <rect x="18" y="84" width="46" height="46" fill="#b58863"/>
+  <rect x="64" y="84" width="46" height="46" fill="#f0d9b5"/>
+  <rect x="110" y="84" width="46" height="46" fill="#b58863"/>
+
+  <!-- Thin board border -->
+  <rect x="18" y="38" width="138" height="92" fill="none" stroke="#1e2a3a" stroke-width="1"/>
+
+  <!-- Ghost black pawn on target square C (sepia, low opacity) -->
+  <text x="133" y="61" text-anchor="middle" dominant-baseline="middle"
+        font-size="28" fill="#c8a060" opacity="0.35" font-family="serif">♟</text>
+
+  <!-- White bishop (attacker) on square A -->
+  <text x="41" y="61" text-anchor="middle" dominant-baseline="middle"
+        font-size="28" fill="#f5f0e8" font-family="serif"
+        style="filter:drop-shadow(0 1px 3px rgba(0,0,0,0.8))">♗</text>
+
+  <!-- Arrow from A to C -->
+  <path d="M 62 61 L 108 61"
+        stroke="#94a3b8" stroke-width="2" fill="none" opacity="0.7"/>
+  <polygon points="110,61 100,56 100,66" fill="#94a3b8" opacity="0.7"/>
+
+  <!-- Glow behind revealed position -->
+  <circle cx="133" cy="61" r="28" fill="url(#burstGlow)"/>
+
+  <!-- Burst lines radiating from target square -->
+  <g stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" opacity="0.7">
+    <line x1="133" y1="22" x2="133" y2="32"/>
+    <line x1="155" y1="28" x2="148" y2="36"/>
+    <line x1="164" y1="48" x2="155" y2="52"/>
+    <line x1="164" y1="75" x2="155" y2="70"/>
+    <line x1="155" y1="94" x2="148" y2="86"/>
+    <line x1="133" y1="100" x2="133" y2="90"/>
+    <line x1="111" y1="94" x2="118" y2="86"/>
+    <line x1="103" y1="75" x2="112" y2="70"/>
+    <line x1="103" y1="48" x2="112" y2="52"/>
+    <line x1="111" y1="28" x2="118" y2="36"/>
+  </g>
+
+  <!-- White bishop now clearly revealed on target square (no ghost, full opacity) -->
+  <text x="133" y="61" text-anchor="middle" dominant-baseline="middle"
+        font-size="28" fill="#f5f0e8" font-family="serif"
+        style="filter:drop-shadow(0 0 6px rgba(251,191,36,0.8))">♗</text>
+
+  <!-- Golden "confirmed" highlight box -->
+  <rect x="110" y="38" width="46" height="46" fill="none"
+        stroke="#fbbf24" stroke-width="2" opacity="0.6" rx="1"/>
+
+  <!-- Captured pawn (×) flying off top-right -->
+  <text x="168" y="28" text-anchor="middle" dominant-baseline="middle"
+        font-size="16" fill="#ef4444" opacity="0.75" font-family="serif">♟</text>
+  <text x="180" y="22" font-size="10" fill="#ef4444" opacity="0.7" font-family="sans-serif">✕</text>
+
+  <!-- "REVEALED" label on right side -->
+  <text x="185" y="62" text-anchor="middle" font-size="10" fill="#fbbf24"
+        font-family="sans-serif" font-weight="700"
+        writing-mode="horizontal-tb">REVEALED</text>
+
+  <!-- Bottom caption -->
+  <text x="110" y="153" text-anchor="middle" font-size="9.5" fill="#475569"
+        font-family="sans-serif">Attacker's true location is exposed</text>
+</svg>

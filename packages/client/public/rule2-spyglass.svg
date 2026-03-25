@@ -1,0 +1,57 @@
+<svg viewBox="0 0 220 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="lensGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#fbbf24" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="lensClip">
+      <circle cx="110" cy="78" r="30"/>
+    </clipPath>
+  </defs>
+
+  <rect width="220" height="170" rx="10" fill="#0f172a"/>
+
+  <!-- 3×3 board, 40px squares, centered -->
+  <!-- Row 0 -->
+  <rect x="30" y="18" width="40" height="40" fill="#f0d9b5" opacity="0.45"/>
+  <rect x="70" y="18" width="40" height="40" fill="#b58863" opacity="0.45"/>
+  <rect x="110" y="18" width="40" height="40" fill="#f0d9b5" opacity="0.45"/>
+  <!-- Row 1 -->
+  <rect x="30" y="58" width="40" height="40" fill="#b58863" opacity="0.45"/>
+  <rect x="70" y="58" width="40" height="40" fill="#f0d9b5" opacity="0.45"/>
+  <rect x="110" y="58" width="40" height="40" fill="#b58863" opacity="0.45"/>
+  <!-- Row 2 -->
+  <rect x="30" y="98" width="40" height="40" fill="#f0d9b5" opacity="0.45"/>
+  <rect x="70" y="98" width="40" height="40" fill="#b58863" opacity="0.45"/>
+  <rect x="110" y="98" width="40" height="40" fill="#f0d9b5" opacity="0.45"/>
+
+  <!-- Board border -->
+  <rect x="30" y="18" width="120" height="120" fill="none" stroke="#1e2a3a" stroke-width="1"/>
+
+  <!-- Lens glow halo (behind piece) -->
+  <circle cx="110" cy="78" r="40" fill="url(#lensGlow)"/>
+
+  <!-- Revealed board square inside lens at full brightness -->
+  <rect x="110" y="58" width="40" height="40" fill="#b58863" clip-path="url(#lensClip)"/>
+
+  <!-- Revealed black rook inside lens -->
+  <text x="130" y="82" text-anchor="middle" dominant-baseline="middle"
+        font-size="30" fill="#1a1a1a" font-family="serif" clip-path="url(#lensClip)">♜</text>
+
+  <!-- Gold lens ring -->
+  <circle cx="110" cy="78" r="30" stroke="#fbbf24" stroke-width="2.5" fill="none" opacity="0.9"/>
+
+  <!-- Lens gleam highlight -->
+  <path d="M 88 60 Q 95 55 102 62" stroke="white" stroke-width="1.5" stroke-linecap="round"
+        fill="none" opacity="0.5"/>
+
+  <!-- Spyglass handle -->
+  <line x1="134" y1="102" x2="152" y2="120" stroke="#fbbf24" stroke-width="4"
+        stroke-linecap="round" opacity="0.85"/>
+  <line x1="152" y1="120" x2="160" y2="130" stroke="#d97706" stroke-width="5"
+        stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Bottom caption -->
+  <text x="110" y="153" text-anchor="middle" font-size="9.5" fill="#475569"
+        font-family="sans-serif">Reveals the true occupant</text>
+</svg>

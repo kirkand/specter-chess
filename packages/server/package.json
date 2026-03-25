@@ -1,0 +1,24 @@
+{
+  "name": "@specter-chess/server",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "NODE_OPTIONS=--no-experimental-warnings ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@specter-chess/shared": "workspace:*",
+    "bad-words": "^4.0.0",
+    "chess.js": "^1.4.0",
+    "express": "^4.19.0",
+    "socket.io": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/bad-words": "^3.0.3",
+    "@types/express": "^4.17.0",
+    "@types/node": "^22.19.15",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.0"
+  }
+}
