@@ -23,12 +23,13 @@ import { initGameDb } from './gamedb';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+const allowedOrigins = [CLIENT_ORIGIN, CLIENT_ORIGIN.replace('https://www.', 'https://'), CLIENT_ORIGIN.replace('https://', 'https://www.')];
 const app = express();
 const httpServer = createServer(app);
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
   httpServer,
-  { cors: { origin: CLIENT_ORIGIN, methods: ['GET', 'POST'] } }
+  { cors: { origin: allowedOrigins, methods: ['GET', 'POST'] } }
 );
 
 // ─── Profanity filter ─────────────────────────────────────────────────────────
