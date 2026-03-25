@@ -56,15 +56,27 @@ Turso is a hosted SQLite service. It stores your ELO ratings and game history in
 Go to https://turso.tech and sign up (GitHub login works).
 
 ### 2.2 Install the Turso CLI
-Open a terminal and run:
 
+**On macOS / Linux**, open a terminal and run:
 ```bash
-# On macOS / Linux:
 curl -sSfL https://get.tur.so/install.sh | bash
-
-# On Windows (PowerShell):
-winget install ChiselStrike.turso
 ```
+
+**On Windows**, the Turso CLI has no native Windows binary — you need to use WSL (Windows Subsystem for Linux):
+
+1. Open PowerShell **as Administrator** (right-click → Run as administrator) and run:
+   ```powershell
+   wsl --install
+   ```
+2. Restart your computer when prompted.
+3. After restart, Ubuntu will open automatically to finish setup. Create a Linux username and password when asked (these can be anything).
+4. Inside the Ubuntu terminal, install Turso:
+   ```bash
+   curl -sSfL https://get.tur.so/install.sh | bash
+   ```
+5. Close and reopen the Ubuntu terminal (so the PATH update takes effect).
+
+> From this point on, run all Turso CLI commands in the **Ubuntu (WSL) terminal**, not in PowerShell.
 
 Then log in:
 ```bash
@@ -177,12 +189,12 @@ Now that you have your Vercel URL:
 
 ### 5.1 Buy a domain on Porkbun
 1. Go to https://porkbun.com
-2. Search for your desired domain (e.g. `spectrechess.com`)
+2. Search for your desired domain (e.g. `specterchess.com`)
 3. Purchase it (~$10–$15/year for a `.com`)
 4. Create a Porkbun account and complete checkout
 
 ### 5.2 Point your domain to Vercel (frontend)
-Your main domain (`spectrechess.com`) should serve the frontend.
+Your main domain (`specterchess.com`) should serve the frontend.
 
 **In Vercel:**
 1. Go to your project → **Settings** → **Domains**
@@ -201,18 +213,18 @@ Your main domain (`spectrechess.com`) should serve the frontend.
 DNS changes can take 10–60 minutes to propagate.
 
 ### 5.3 Add www redirect in Vercel
-In Vercel → **Domains**, also add `www.spectrechess.com`.
+In Vercel → **Domains**, also add `www.specterchess.com`.
 Vercel will automatically redirect `www` → root (or vice versa).
 
 ### 5.4 Update CLIENT_ORIGIN with your real domain
-In Render → **Environment**, update `CLIENT_ORIGIN` to `https://spectrechess.com`.
+In Render → **Environment**, update `CLIENT_ORIGIN` to `https://specterchess.com`.
 Render redeploys automatically.
 
 ---
 
 ## Part 6 — Verify Everything Works
 
-1. Open `https://spectrechess.com` in two browser tabs
+1. Open `https://specterchess.com` in two browser tabs
 2. Tab 1: Create a game
 3. Tab 2: Join it
 4. Play a few moves — verify hidden-information behavior works

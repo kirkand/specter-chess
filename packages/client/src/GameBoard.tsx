@@ -4,18 +4,21 @@ import type { PlayerView, Color, Move, Square, SpyglassResult, Piece } from '@sp
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const BOARD_SIZE = 520;
-const SQUARE_SIZE = BOARD_SIZE / 8;
+const MAX_BOARD_SIZE = 520;
 const ANIM_DURATION = 650;
 
 let nextAnimId = 0;
 
-function squareToPixel(square: Square, orientation: Color): { top: number; left: number } {
+function getBoardSize() {
+  return Math.min(MAX_BOARD_SIZE, window.innerWidth - 16);
+}
+
+function squareToPixel(square: Square, orientation: Color, squareSize: number): { top: number; left: number } {
   const file = square.charCodeAt(0) - 97; // 'a'=0 … 'h'=7
   const rank = parseInt(square[1]) - 1;   // '1'=0 … '8'=7
   return orientation === 'white'
-    ? { left: file * SQUARE_SIZE, top: (7 - rank) * SQUARE_SIZE }
-    : { left: (7 - file) * SQUARE_SIZE, top: rank * SQUARE_SIZE };
+    ? { left: file * squareSize, top: (7 - rank) * squareSize }
+    : { left: (7 - file) * squareSize, top: rank * squareSize };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -174,6 +177,8 @@ export function GameBoard({
   onReset,
   onReturnToLobby,
 }: GameBoardProps) {
+  const [boardSize, setBoardSize] = useState(getBoardSize);
+  const squareSize = boardSize / 8;
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [animatingInSquares, setAnimatingInSquares] = useState<Set<Square>>(new Set());
   const [animatingOutPieces, setAnimatingOutPieces] = useState<
@@ -181,6 +186,12 @@ export function GameBoard({
   >([]);
   const [showOutcome, setShowOutcome] = useState(false);
   const prevViewRef = useRef<PlayerView>(view);
+
+  useEffect(() => {
+    function handleResize() { setBoardSize(getBoardSize()); }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Show outcome overlay briefly when the game ends
   useEffect(() => {
@@ -404,7 +415,7 @@ export function GameBoard({
       </div>
 
       {/* Opponent row: name + ELO + captured pieces + clock */}
-      <div style={{ width: BOARD_SIZE, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontSize: '0.85rem', opacity: 0.65, whiteSpace: 'nowrap' }}>
           {view.opponentName}
         </span>
@@ -419,7 +430,7 @@ export function GameBoard({
       <div style={{ position: 'relative' }}>
         <Chessboard
           id="specter-chess-board"
-          boardWidth={BOARD_SIZE}
+          boardWidth={boardSize}
           position={position}
           boardOrientation={playerColor}
           onPieceDrop={handlePieceDrop}
@@ -469,7 +480,7 @@ export function GameBoard({
 
         {/* Spyglass result label overlaid on the target square */}
         {spyglassResult && (() => {
-          const { top, left } = squareToPixel(spyglassResult.square, playerColor);
+          const { top, left } = squareToPixel(spyglassResult.square, playerColor, squareSize);
           const label = spyglassResult.piece
             ? `${spyglassResult.piece.color} ${spyglassResult.piece.type}`
             : 'empty';
@@ -477,8 +488,8 @@ export function GameBoard({
             <div
               style={{
                 position: 'absolute',
-                top: top + SQUARE_SIZE / 2,
-                left: left + SQUARE_SIZE / 2,
+                top: top + squareSize / 2,
+                left: left + squareSize / 2,
                 transform: 'translate(-50%, -50%)',
                 background: 'rgba(0,0,0,0.82)',
                 border: '1px solid gold',
@@ -501,13 +512,13 @@ export function GameBoard({
 
         {/* Opponent spyglass label overlaid on the target square */}
         {opponentSpyglassSquare && (() => {
-          const { top, left } = squareToPixel(opponentSpyglassSquare, playerColor);
+          const { top, left } = squareToPixel(opponentSpyglassSquare, playerColor, squareSize);
           return (
             <div
               style={{
                 position: 'absolute',
-                top: top + SQUARE_SIZE / 2,
-                left: left + SQUARE_SIZE / 2,
+                top: top + squareSize / 2,
+                left: left + squareSize / 2,
                 transform: 'translate(-50%, -50%)',
                 background: 'rgba(0,0,0,0.82)',
                 border: '1px solid #c084fc',
@@ -531,7 +542,7 @@ export function GameBoard({
         {animatingOutPieces.length > 0 && (
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
             {animatingOutPieces.map(({ id, square, piece }) => {
-              const { top, left } = squareToPixel(square, playerColor);
+              const { top, left } = squareToPixel(square, playerColor, squareSize);
               return (
                 <div
                   key={id}
@@ -539,12 +550,12 @@ export function GameBoard({
                     position: 'absolute',
                     top,
                     left,
-                    width: SQUARE_SIZE,
-                    height: SQUARE_SIZE,
+                    width: squareSize,
+                    height: squareSize,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: SQUARE_SIZE * 0.75,
+                    fontSize: squareSize * 0.75,
                     lineHeight: 1,
                     animation: `spooky-out ${ANIM_DURATION}ms ease forwards`,
                     color: piece.color === 'white' ? '#f0f0f0' : '#1a1a1a',
@@ -562,7 +573,7 @@ export function GameBoard({
       </div>
 
       {/* My row: name + ELO + captured pieces + clock */}
-      <div style={{ width: BOARD_SIZE, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontSize: '0.85rem', opacity: 0.65, whiteSpace: 'nowrap' }}>
           {view.playerName}
         </span>

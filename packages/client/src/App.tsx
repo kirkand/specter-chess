@@ -318,7 +318,7 @@ function LobbyScreen({
         </button>
         <div style={{
           overflow: 'hidden',
-          maxHeight: rulesOpen ? '600px' : '0px',
+          maxHeight: rulesOpen ? '1200px' : '0px',
           opacity: rulesOpen ? 1 : 0,
           transition: rulesOpen
             ? 'max-height 0.35s ease, opacity 0.25s ease'
