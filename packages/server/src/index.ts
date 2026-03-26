@@ -76,7 +76,7 @@ interface GameSession {
 }
 
 const sessions = new Map<string, GameSession>();
-const openGames = new Map<string, { createdAt: number; timeControl: number }>();
+const openGames = new Map<string, { createdAt: number; timeControl: number; hostName: string; hostElo: number }>();
 let onlineCount = 0;
 
 async function broadcastStats() {
@@ -237,13 +237,17 @@ function scheduleBotMove(gameId: string, session: GameSession) {
 
 // ─── View helpers ─────────────────────────────────────────────────────────────
 
-function broadcastOpenGames() {
+function buildOpenGamesList(): GameListing[] {
   const games: GameListing[] = [];
-  for (const [gameId, { createdAt, timeControl }] of openGames.entries()) {
-    games.push({ gameId, createdAt, timeControl });
+  for (const [gameId, { createdAt, timeControl, hostName, hostElo }] of openGames.entries()) {
+    games.push({ gameId, createdAt, timeControl, hostName, hostElo });
   }
   games.sort((a, b) => a.createdAt - b.createdAt);
-  io.emit('open_games_update', games);
+  return games;
+}
+
+function broadcastOpenGames() {
+  io.emit('open_games_update', buildOpenGamesList());
 }
 
 function getColorForSocket(session: GameSession, socketId: string): Color | null {
@@ -282,12 +286,7 @@ io.on('connection', socket => {
   onlineCount++;
   void broadcastStats();
 
-  const games: GameListing[] = [];
-  for (const [gameId, { createdAt, timeControl }] of openGames.entries()) {
-    games.push({ gameId, createdAt, timeControl });
-  }
-  games.sort((a, b) => a.createdAt - b.createdAt);
-  socket.emit('open_games_update', games);
+  socket.emit('open_games_update', buildOpenGamesList());
 
   // ── Register ──────────────────────────────────────────────────────────────
 
@@ -310,12 +309,7 @@ io.on('connection', socket => {
   // ── Get open games ────────────────────────────────────────────────────────
 
   socket.on('get_open_games', () => {
-    const games: GameListing[] = [];
-    for (const [gameId, { createdAt, timeControl }] of openGames.entries()) {
-      games.push({ gameId, createdAt, timeControl });
-    }
-    games.sort((a, b) => a.createdAt - b.createdAt);
-    socket.emit('open_games_update', games);
+    socket.emit('open_games_update', buildOpenGamesList());
   });
 
   // ── Set name ──────────────────────────────────────────────────────────────
@@ -357,7 +351,7 @@ io.on('connection', socket => {
       botSpyglassHistory: [],
     };
     sessions.set(gameId, session);
-    openGames.set(gameId, { createdAt: Date.now(), timeControl });
+    openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo: whiteElo });
 
     socket.data.color = 'white';
     socket.data.gameId = gameId;

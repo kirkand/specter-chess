@@ -94,6 +94,8 @@ export interface GameListing {
   gameId: string;
   createdAt: number; // Unix timestamp ms
   timeControl: number; // seconds per player
+  hostName: string;
+  hostElo: number;
 }
 
 // ─── Socket.io events ────────────────────────────────────────────────────────

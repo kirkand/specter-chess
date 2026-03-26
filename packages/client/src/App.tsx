@@ -570,11 +570,11 @@ function LobbyScreen({
                 border: '1px solid rgba(255,255,255,0.12)',
               }}
             >
-              <span style={{ fontFamily: 'monospace', fontSize: '1rem', letterSpacing: '0.05em' }}>
-                {game.gameId}
+              <span style={{ fontSize: '1rem' }}>
+                {game.hostName}
               </span>
               <span style={{ fontSize: '0.85rem', opacity: 0.6, whiteSpace: 'nowrap' }}>
-                {game.timeControl / 60}m
+                {game.hostElo} • {game.timeControl / 60}m
               </span>
               <span style={{ fontSize: '0.8rem', opacity: 0.4, flex: 1, textAlign: 'right' }}>
                 {formatAge(game.createdAt)}
