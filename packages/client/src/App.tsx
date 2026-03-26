@@ -629,18 +629,16 @@ function PrivacyPolicyModal({ onClose }: { onClose: () => void }) {
             <li>
               <strong>Anonymous player ID (UUID)</strong> — A randomly generated identifier
               is created the first time you visit and stored in your browser's{' '}
-              <code>localStorage</code>. It is never linked to your name, email, or any
-              personal information. Clearing your browser's site data will generate a new ID.
+              <code>localStorage</code>. It maps to your display name, but is never linked to your real name, email, or any
+              other personal information. Clearing your browser's site data will generate a new ID.
             </li>
             <li>
               <strong>Display name</strong> — The name you choose to display in-game.
-              This is voluntary and can be anything you like. We do not recommend to use your real full name. 
-              Display names are not linked to UUID in our database.
+              This is voluntary and can be anything you like. We recommend against using your real name.
             </li>
             <li>
               <strong>Game records</strong> — Each completed PvP game is logged in our
-              database with the following fields: timestamp, game ID, both players'
-              anonymous UUIDs, game duration, time control, match outcome, and ELO ratings
+              database with information about the player UUIDs, game settings, match outcome, and ELO ratings
               before and after the game.
             </li>
             <li>
@@ -651,29 +649,25 @@ function PrivacyPolicyModal({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="What We Do Not Collect">
-          We do not store or process your name, email address, IP address, location, device
+          We do not store or process your real name, email address, IP address, location, device
           identifiers, or any information that could identify you as an individual.
           We do not use cookies. We do not serve advertisements.
         </Section>
 
         <Section title="How Your Data Is Used">
-          Collected data is used solely to operate the game: tracking win/loss records,
-          computing ELO ratings, and maintaining leaderboards. Game records may be used
-          in aggregate and anonymised form to improve the game.
+          Collected data is used solely to facilitate and improve the gameplay experience: tracking win/loss records,
+          computing ELO ratings, maintaining leaderboards, spotting experience issues, etc.
         </Section>
 
         <Section title="Data Storage">
-          Game data is stored on our server in a SQLite database. Your UUID is stored
-          only in your own browser's <code>localStorage</code> — it is sent to the server
+          Game data is stored on our server in a cloud database. Your UUID is stored
+          in your own browser's <code>localStorage</code> — it is sent to the server
           only when you register a session via our real-time connection.
         </Section>
 
         <Section title="Data Retention & Deletion">
-          There is currently no automated data expiry. Because all data is tied to an
-          anonymous UUID rather than a personal identity, we have no way to look up or
-          delete records on request without you providing your UUID. You can effectively
-          "reset" your account at any time by clearing your browser's site data, which
-          will generate a fresh UUID.
+          There is currently no automated data expiry. You can reset your account at any time by
+          clearing your browser's site data, which will generate a fresh UUID.
         </Section>
 
         <Section title="Changes to This Policy">
