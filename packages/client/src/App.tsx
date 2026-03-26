@@ -29,7 +29,8 @@ type AppState =
   | { phase: 'lobby'; openGames: GameListing[]; joinError: string | null }
   | { phase: 'waiting'; gameId: string }
   | { phase: 'playing'; color: Color; view: PlayerView }
-  | { phase: 'disconnected' };
+  | { phase: 'disconnected' }
+  | { phase: 'timed_out' };
 
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: 'connecting' });
@@ -137,6 +138,10 @@ export default function App() {
       setState({ phase: 'disconnected' });
     });
 
+    socket.on('disconnect', () => {
+      setState(prev => prev.phase === 'waiting' ? { phase: 'timed_out' } : prev);
+    });
+
     socket.on('name_rejected', (reason: string) => {
       setNameError(reason);
     });
@@ -186,6 +191,25 @@ export default function App() {
         message="Waiting for opponent…"
         hint={state.gameId ? `Game ID: ${state.gameId}` : 'Open a second tab to play'}
       />
+    );
+  }
+
+  if (state.phase === 'timed_out') {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '0.5rem' }} />
+        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
+        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Your connection timed out.</p>
+        <button
+          onClick={() => {
+            setState({ phase: 'lobby', openGames: [], joinError: null });
+            socket.emit('get_open_games');
+          }}
+          style={{ marginTop: '1rem' }}
+        >
+          Return to Lobby
+        </button>
+      </div>
     );
   }
 
