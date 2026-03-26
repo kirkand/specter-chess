@@ -395,6 +395,9 @@ function LobbyScreen({
             ? 'max-height 0.35s ease, opacity 0.25s ease'
             : 'max-height 0.25s ease, opacity 0.15s ease',
         }}>
+        <p style={{ textAlign: 'center', fontSize: '0.85rem', opacity: 0.6, margin: '0 0 0.75rem' }}>
+          Same rules as chess, except…
+        </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           {[
             {
