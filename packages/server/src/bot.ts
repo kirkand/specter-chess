@@ -170,7 +170,6 @@ function minimax(
 export function getBotSpyglassTarget(
   humanPerspectiveFen: string,
   botPerspectiveFen: string,
-  trueFen: string,
   recentSquares: string[] = [],
 ): Square | null {
   const chess = new Chess();
@@ -184,7 +183,8 @@ export function getBotSpyglassTarget(
   if (moves.length === 0) return null;
 
   // Squares the bot already knows about (occupied in its own perspective) —
-  // spying there reveals nothing new.
+  // spying there reveals nothing new. Bot's own pieces (black) are already
+  // included in the perspective FEN, so no separate true-board pass needed.
   const botPerspective = new Chess();
   try {
     botPerspective.load(botPerspectiveFen, { skipValidation: true });
@@ -195,14 +195,6 @@ export function getBotSpyglassTarget(
   for (const row of botPerspective.board()) {
     for (const cell of row) {
       if (cell) knownSquares.add(cell.square);
-    }
-  }
-
-  // Also exclude squares occupied by the bot's own pieces on the true board.
-  const trueBoard = new Chess(trueFen);
-  for (const row of trueBoard.board()) {
-    for (const cell of row) {
-      if (cell && cell.color === 'b') knownSquares.add(cell.square);
     }
   }
 
@@ -270,10 +262,3 @@ export function getBotMoveCandidates(fen: string, difficulty: BotDifficulty, bot
   return scored.map(s => toMove(s.m));
 }
 
-export function getBotDelay(difficulty: BotDifficulty): number {
-  switch (difficulty) {
-    case 'easy':   return 600 + Math.random() * 900;
-    case 'medium': return 450 + Math.random() * 600;
-    case 'hard':   return 250 + Math.random() * 350;
-  }
-}

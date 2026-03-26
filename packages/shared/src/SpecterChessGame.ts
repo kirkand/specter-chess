@@ -173,37 +173,36 @@ export class SpecterChessGame {
   }
 
   /**
-   * Returns a FEN from the bot's (black's) perspective:
-   * black pieces at their true positions, white pieces at their stale snapshot
-   * positions (what black last saw before white's most recent move).
+   * Builds a perspective FEN for a given side: own pieces at true positions,
+   * opponent pieces at stale snapshot positions (plus any confirmed positions).
    * Falls back to the true FEN if the synthetic position is rejected by chess.js.
    */
-  getBotPerspectiveFen(): string {
+  private buildPerspectiveFen(ownColor: 'w' | 'b'): string {
+    const playerKey: Color = ownColor === 'b' ? 'black' : 'white';
+    const oppGameColor: Color = ownColor === 'b' ? 'white' : 'black';
+    const oppFen = (type: PieceType) =>
+      ownColor === 'w' ? PIECE_SYMBOL_MAP[type] : PIECE_SYMBOL_MAP[type].toUpperCase();
+
     const pieceMap: Record<string, string> = {};
 
-    // True black piece positions (lowercase FEN chars)
+    // Own pieces at true positions
     for (const row of this.chess.board()) {
       for (const cell of row) {
-        if (cell && cell.color === 'b') {
-          pieceMap[cell.square] = cell.type;
+        if (cell && cell.color === ownColor) {
+          pieceMap[cell.square] = ownColor === 'w' ? cell.type.toUpperCase() : cell.type;
         }
       }
     }
 
-    // White pieces at stale snapshot positions (uppercase FEN chars)
-    // Skip any square already occupied by a black piece
-    for (const { square, piece } of this.opponentSnapshot['black']) {
-      if (!pieceMap[square]) {
-        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type].toUpperCase();
-      }
+    // Opponent pieces from stale snapshot
+    for (const { square, piece } of this.opponentSnapshot[playerKey]) {
+      if (!pieceMap[square]) pieceMap[square] = oppFen(piece.type);
     }
 
-    // Override/add confirmed white piece positions (revealed by capture or spyglass).
-    // These are the true current positions the bot has observed, so they take
-    // precedence over the stale snapshot.
-    for (const [square, piece] of this.confirmedPositions['black']) {
-      if (piece.color === 'white' && !pieceMap[square]) {
-        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type].toUpperCase();
+    // Confirmed opponent positions override the stale snapshot
+    for (const [square, piece] of this.confirmedPositions[playerKey]) {
+      if (piece.color === oppGameColor && !pieceMap[square]) {
+        pieceMap[square] = oppFen(piece.type);
       }
     }
 
@@ -225,93 +224,14 @@ export class SpecterChessGame {
       if (rank > 1) placement += '/';
     }
 
-    // Approximate castling rights from piece positions
-    const whiteSnap = this.opponentSnapshot['black'];
-    const wKingE1  = whiteSnap.some(p => p.square === 'e1' && p.piece.type === 'king');
-    const wRookH1  = whiteSnap.some(p => p.square === 'h1' && p.piece.type === 'rook');
-    const wRookA1  = whiteSnap.some(p => p.square === 'a1' && p.piece.type === 'rook');
-    const bKingE8  = pieceMap['e8'] === 'k';
-    const bRookH8  = pieceMap['h8'] === 'r';
-    const bRookA8  = pieceMap['a8'] === 'r';
-
-    let castling = '';
-    if (wKingE1 && wRookH1) castling += 'K';
-    if (wKingE1 && wRookA1) castling += 'Q';
-    if (bKingE8  && bRookH8)  castling += 'k';
-    if (bKingE8  && bRookA8)  castling += 'q';
-    if (!castling) castling = '-';
-
-    const fen = `${placement} b ${castling} - 0 1`;
-
-    // Validate — chess.js rejects positions where the non-moving side is in check,
-    // has missing kings, pawns on back ranks, etc. Fall back to true FEN if invalid.
-    try {
-      new Chess(fen);
-      return fen;
-    } catch {
-      return this.chess.fen();
-    }
-  }
-
-  /**
-   * Returns a FEN from the human's (white's) perspective:
-   * white pieces at their true positions, black pieces at their stale snapshot
-   * positions (what white last saw before black's most recent move).
-   * Falls back to the true FEN if the synthetic position is rejected by chess.js.
-   */
-  getHumanPerspectiveFen(): string {
-    const pieceMap: Record<string, string> = {};
-
-    // True white piece positions (uppercase FEN chars)
-    for (const row of this.chess.board()) {
-      for (const cell of row) {
-        if (cell && cell.color === 'w') {
-          pieceMap[cell.square] = cell.type.toUpperCase();
-        }
-      }
-    }
-
-    // Black pieces at stale snapshot positions (lowercase FEN chars)
-    // Skip any square already occupied by a white piece
-    for (const { square, piece } of this.opponentSnapshot['white']) {
-      if (!pieceMap[square]) {
-        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type];
-      }
-    }
-
-    // Override/add confirmed black piece positions (revealed by capture or spyglass)
-    for (const [square, piece] of this.confirmedPositions['white']) {
-      if (piece.color === 'black' && !pieceMap[square]) {
-        pieceMap[square] = PIECE_SYMBOL_MAP[piece.type];
-      }
-    }
-
-    // Build piece placement string (rank 8 down to rank 1)
-    let placement = '';
-    for (let rank = 8; rank >= 1; rank--) {
-      let empty = 0;
-      for (const file of 'abcdefgh') {
-        const sq = `${file}${rank}`;
-        const p = pieceMap[sq];
-        if (p) {
-          if (empty > 0) { placement += empty; empty = 0; }
-          placement += p;
-        } else {
-          empty++;
-        }
-      }
-      if (empty > 0) placement += empty;
-      if (rank > 1) placement += '/';
-    }
-
-    // Approximate castling rights from piece positions
-    const blackSnap = this.opponentSnapshot['white'];
-    const bKingE8 = blackSnap.some(p => p.square === 'e8' && p.piece.type === 'king');
-    const bRookH8 = blackSnap.some(p => p.square === 'h8' && p.piece.type === 'rook');
-    const bRookA8 = blackSnap.some(p => p.square === 'a8' && p.piece.type === 'rook');
-    const wKingE1 = pieceMap['e1'] === 'K';
-    const wRookH1 = pieceMap['h1'] === 'R';
-    const wRookA1 = pieceMap['a1'] === 'R';
+    // Approximate castling rights: own pieces come from pieceMap, opponent from snapshot
+    const oppSnap = this.opponentSnapshot[playerKey];
+    const wKingE1 = ownColor === 'w' ? pieceMap['e1'] === 'K' : oppSnap.some(p => p.square === 'e1' && p.piece.type === 'king');
+    const wRookH1 = ownColor === 'w' ? pieceMap['h1'] === 'R' : oppSnap.some(p => p.square === 'h1' && p.piece.type === 'rook');
+    const wRookA1 = ownColor === 'w' ? pieceMap['a1'] === 'R' : oppSnap.some(p => p.square === 'a1' && p.piece.type === 'rook');
+    const bKingE8 = ownColor === 'b' ? pieceMap['e8'] === 'k' : oppSnap.some(p => p.square === 'e8' && p.piece.type === 'king');
+    const bRookH8 = ownColor === 'b' ? pieceMap['h8'] === 'r' : oppSnap.some(p => p.square === 'h8' && p.piece.type === 'rook');
+    const bRookA8 = ownColor === 'b' ? pieceMap['a8'] === 'r' : oppSnap.some(p => p.square === 'a8' && p.piece.type === 'rook');
 
     let castling = '';
     if (wKingE1 && wRookH1) castling += 'K';
@@ -320,14 +240,23 @@ export class SpecterChessGame {
     if (bKingE8 && bRookA8) castling += 'q';
     if (!castling) castling = '-';
 
-    const fen = `${placement} w ${castling} - 0 1`;
-
+    const fen = `${placement} ${ownColor} ${castling} - 0 1`;
     try {
       new Chess(fen);
       return fen;
     } catch {
       return this.chess.fen();
     }
+  }
+
+  /** FEN from the bot's (black's) perspective. */
+  getBotPerspectiveFen(): string {
+    return this.buildPerspectiveFen('b');
+  }
+
+  /** FEN from the human's (white's) perspective. */
+  getHumanPerspectiveFen(): string {
+    return this.buildPerspectiveFen('w');
   }
 
   /**

@@ -18,7 +18,7 @@ import {
   type ChatEmote,
 } from '@specter-chess/shared';
 import * as db from './db';
-import { getBotMoveCandidates, getBotSpyglassTarget, getBotDelay } from './bot';
+import { getBotMoveCandidates, getBotSpyglassTarget } from './bot';
 import * as gamedb from './gamedb';
 import { initDb } from './db';
 import { initGameDb } from './gamedb';
@@ -182,7 +182,11 @@ function liveTimeRemaining(session: GameSession): { white: number; black: number
 function scheduleBotMove(gameId: string, session: GameSession) {
   if (!session.botDifficulty || session.game.isGameOver) return;
 
-  const delay = getBotDelay(session.botDifficulty);
+  const MIN_DELAY_MS = 1000;
+  const scheduleStart = Date.now();
+
+  // Defer computation to the next tick so pushViews fires first,
+  // giving the human immediate visual feedback of their move.
   session.botMoveHandle = setTimeout(() => {
     session.botMoveHandle = null;
     if (session.game.isGameOver) return;
@@ -190,51 +194,61 @@ function scheduleBotMove(gameId: string, session: GameSession) {
     const botColor: Color = 'black';
     const humanSocketId = session.sockets.white;
 
-    // ── Spyglass phase ────────────────────────────────────────────────────────
-    let moveFen = session.game.getBotPerspectiveFen();
+    // ── Think phase (no side effects) ───────────────────────────────────────
+    const botPerspectiveFen = session.game.getBotPerspectiveFen();
+    const spyTarget = getBotSpyglassTarget(
+      session.game.getHumanPerspectiveFen(),
+      botPerspectiveFen,
+      session.botSpyglassHistory,
+    );
+    let candidates = getBotMoveCandidates(botPerspectiveFen, session.botDifficulty!, 'b');
 
-    const spyTarget = getBotSpyglassTarget(session.game.getHumanPerspectiveFen(), moveFen, session.game.getFen(), session.botSpyglassHistory);
+    const remaining = Math.max(0, MIN_DELAY_MS - (Date.now() - scheduleStart));
 
-    if (spyTarget) {
-      session.botSpyglassHistory = [...session.botSpyglassHistory.slice(-2), spyTarget];
-      const spyResult = session.game.useSpyglass(botColor, spyTarget);
-      // Notify the human player of the bot's spyglass usage
-      if (humanSocketId) io.to(humanSocketId).emit('opponent_spyglass', spyTarget);
-      // If a human piece was found, upgrade to the true FEN for the move decision
-      if (spyResult?.piece) {
-        moveFen = session.game.getFen();
+    // ── Execute phase (after minimum delay) ─────────────────────────────────
+    session.botMoveHandle = setTimeout(() => {
+      session.botMoveHandle = null;
+      if (session.game.isGameOver) return;
+
+      // Spyglass side effect
+      if (spyTarget) {
+        if (session.botSpyglassHistory.length >= 3) session.botSpyglassHistory.shift();
+        session.botSpyglassHistory.push(spyTarget);
+        const spyResult = session.game.useSpyglass(botColor, spyTarget);
+        if (humanSocketId) io.to(humanSocketId).emit('opponent_spyglass', spyTarget);
+        // If a human piece was found, recompute candidates from the true board
+        if (spyResult?.piece) {
+          candidates = getBotMoveCandidates(session.game.getFen(), session.botDifficulty!, 'b');
+        }
       }
-    }
 
-    // ── Move phase ────────────────────────────────────────────────────────────
-    const candidates = getBotMoveCandidates(moveFen, session.botDifficulty!, 'b');
-    if (candidates.length === 0) return;
+      if (candidates.length === 0) return;
 
-    stopTimer(session, botColor);
-    session.drawOfferedBy = null;
+      stopTimer(session, botColor);
+      session.drawOfferedBy = null;
 
-    let valid = false;
-    for (const move of candidates) {
-      valid = session.game.attemptMove(botColor, move);
-      if (valid) break;
-    }
-    if (!valid) return; // all candidates rejected
-
-    if (session.game.isGameOver) {
-      void recordGameResult(gameId, session);
-    } else {
-      startTimer(gameId, session);
-    }
-
-    pushViews(gameId);
-
-    // Notify human if in check
-    if (humanSocketId && !session.game.isGameOver) {
-      if (session.game.getPlayerView('white').inCheck) {
-        io.to(humanSocketId).emit('check_notification');
+      let valid = false;
+      for (const move of candidates) {
+        valid = session.game.attemptMove(botColor, move);
+        if (valid) break;
       }
-    }
-  }, delay);
+      if (!valid) return;
+
+      if (session.game.isGameOver) {
+        void recordGameResult(gameId, session);
+      } else {
+        startTimer(gameId, session);
+      }
+
+      pushViews(gameId);
+
+      if (humanSocketId && !session.game.isGameOver) {
+        if (session.game.getPlayerView('white').inCheck) {
+          io.to(humanSocketId).emit('check_notification');
+        }
+      }
+    }, remaining);
+  }, 0);
 }
 
 // ─── View helpers ─────────────────────────────────────────────────────────────
