@@ -644,6 +644,8 @@ function LobbyScreen({
         <button onClick={() => setCreditsOpen(true)} style={footerLinkStyle}>Open Source Credits</button>
         <br />
         © 2026 Specter Chess. All rights reserved.{' · '}You must be 13 or older to play.
+        <br />
+        Questions or feedback can be sent to <a href="mailto:feedback@specterchess.com" style={{ color: 'inherit' }}>feedback@specterchess.com</a>
       </div>
 
       {privacyOpen && <PrivacyPolicyModal onClose={() => setPrivacyOpen(false)} />}

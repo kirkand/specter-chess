@@ -70,6 +70,7 @@ interface GameSession {
   timeRemaining: Record<Color, number>;
   turnStartTime: number | null;
   timerHandle: ReturnType<typeof setTimeout> | null;
+  cleanupHandle: ReturnType<typeof setTimeout> | null;
   drawOfferedBy: Color | null;
   botDifficulty: BotDifficulty | null;
   botMoveHandle: ReturnType<typeof setTimeout> | null;
@@ -320,6 +321,20 @@ io.on('connection', socket => {
       losses: record?.losses ?? 0,
       draws: record?.draws ?? 0,
     });
+
+    // Reconnect host to a waiting game they created before disconnecting
+    for (const [gameId, session] of sessions) {
+      if (session.uuids.white === uuid && !session.sockets.white && !session.sockets.black) {
+        if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
+        session.sockets.white = socket.id;
+        socket.data.color = 'white';
+        socket.data.gameId = gameId;
+        console.log(`[reconnect] ${socket.id} rejoined waiting game ${gameId}`);
+        socket.emit('game_created', gameId);
+        socket.emit('waiting_for_opponent');
+        break;
+      }
+    }
   });
 
   // ── Get open games ────────────────────────────────────────────────────────
@@ -358,6 +373,7 @@ io.on('connection', socket => {
       timeRemaining: { white: timeControl * 1000, black: timeControl * 1000 },
       turnStartTime: null,
       timerHandle: null,
+      cleanupHandle: null,
       drawOfferedBy: null,
       botDifficulty: null,
       botMoveHandle: null,
@@ -388,6 +404,7 @@ io.on('connection', socket => {
     const blackElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
     if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
 
+    if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
     session.sockets.black = socket.id;
     session.names.black = socket.data.name ?? 'Black';
     session.uuids.black = socket.data.uuid;
@@ -432,6 +449,7 @@ io.on('connection', socket => {
       timeRemaining: { white: timeControl * 1000, black: timeControl * 1000 },
       turnStartTime: null,
       timerHandle: null,
+      cleanupHandle: null,
       drawOfferedBy: null,
       botDifficulty: difficulty,
       botMoveHandle: null,
@@ -648,11 +666,16 @@ io.on('connection', socket => {
     const color = getColorForSocket(session, socket.id);
     if (!color) return;
 
-    if (openGames.has(gameId)) {
-      if (session.timerHandle) clearTimeout(session.timerHandle);
-      openGames.delete(gameId);
-      sessions.delete(gameId);
-      broadcastOpenGames();
+    // Waiting for opponent (public or private) — give host a grace period to reconnect
+    // rather than immediately destroying the session and invalidating the invite link.
+    if (!session.sockets.black) {
+      if (session.timerHandle) { clearTimeout(session.timerHandle); session.timerHandle = null; }
+      delete session.sockets[color];
+      session.cleanupHandle = setTimeout(() => {
+        openGames.delete(gameId);
+        sessions.delete(gameId);
+        broadcastOpenGames();
+      }, 60 * 1000); // 1-minute grace period
       return;
     }
 
