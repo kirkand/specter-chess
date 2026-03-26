@@ -29,6 +29,11 @@ export async function initDb(): Promise<void> {
   await turso.execute(`INSERT OR IGNORE INTO stats (id, games_played) VALUES (1, 0)`);
 }
 
+export async function getPlayer(uuid: string): Promise<PlayerRecord | null> {
+  const res = await turso.execute({ sql: `SELECT * FROM players WHERE uuid = ?`, args: [uuid] });
+  return res.rows[0] ? rowToPlayer(res.rows[0]) : null;
+}
+
 export async function getOrCreatePlayer(uuid: string): Promise<PlayerRecord> {
   await turso.execute({ sql: `INSERT OR IGNORE INTO players (uuid) VALUES (?)`, args: [uuid] });
   const res = await turso.execute({ sql: `SELECT * FROM players WHERE uuid = ?`, args: [uuid] });

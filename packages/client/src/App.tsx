@@ -12,6 +12,16 @@ function getOrCreateUuid(): string {
   return uuid;
 }
 
+function getOrCreateDefaultName(): string {
+  const key = 'specter-name';
+  const stored = localStorage.getItem(key);
+  if (stored) return stored;
+  const suffix = String(Math.floor(Math.random() * 9000) + 1000);
+  const name = `Anonymous${suffix}`;
+  localStorage.setItem(key, name);
+  return name;
+}
+
 const MY_UUID = getOrCreateUuid();
 
 type AppState =
@@ -27,7 +37,7 @@ export default function App() {
   const [opponentSpyglassSquare, setOpponentSpyglassSquare] = useState<string | null>(null);
   const [lastRejected, setLastRejected] = useState(false);
   const [inCheck, setInCheck] = useState(false);
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem('specter-name') ?? '');
+  const [playerName, setPlayerName] = useState(() => getOrCreateDefaultName());
   const [nameError, setNameError] = useState<string | null>(null);
   const playerNameRef = useRef(playerName);
   useEffect(() => { playerNameRef.current = playerName; }, [playerName]);

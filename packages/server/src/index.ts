@@ -294,13 +294,16 @@ io.on('connection', socket => {
   socket.on('register', async (uuid: string) => {
     if (!UUID_RE.test(uuid)) return;
     socket.data.uuid = uuid;
-    const record = await db.getOrCreatePlayer(uuid);
+    const record = await db.getPlayer(uuid);
     // Sync stored name → name last used for this UUID
-    if (record.name !== 'Anonymous' && !socket.data.name) {
+    if (record && record.name !== 'Anonymous' && !socket.data.name) {
       socket.data.name = record.name;
     }
     socket.emit('rating_update', {
-      elo: record.elo, wins: record.wins, losses: record.losses, draws: record.draws,
+      elo: record?.elo ?? 1200,
+      wins: record?.wins ?? 0,
+      losses: record?.losses ?? 0,
+      draws: record?.draws ?? 0,
     });
   });
 
@@ -321,7 +324,10 @@ io.on('connection', socket => {
     const error = validateName(name);
     if (error) { socket.emit('name_rejected', error); return; }
     socket.data.name = name.trim();
-    if (socket.data.uuid) await db.updatePlayerName(socket.data.uuid, name.trim());
+    if (socket.data.uuid) {
+      await db.getOrCreatePlayer(socket.data.uuid);
+      await db.updatePlayerName(socket.data.uuid, name.trim());
+    }
   });
 
   // ── Create game ───────────────────────────────────────────────────────────
