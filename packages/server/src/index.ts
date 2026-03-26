@@ -14,6 +14,8 @@ import {
   type SocketData,
   type GameListing,
   type PlayerRating,
+  CHAT_EMOTES,
+  type ChatEmote,
 } from '@specter-chess/shared';
 import * as db from './db';
 import { getBotMoveCandidates, getBotSpyglassTarget, getBotDelay } from './bot';
@@ -574,6 +576,21 @@ io.on('connection', socket => {
 
     session.drawOfferedBy = null;
     pushViews(gameId);
+  });
+
+  // ── Chat emote ────────────────────────────────────────────────────────────
+
+  socket.on('chat_emote', (text: ChatEmote) => {
+    if (!(CHAT_EMOTES as readonly string[]).includes(text)) return;
+    const gameId = socket.data.gameId;
+    if (!gameId) return;
+    const session = sessions.get(gameId);
+    if (!session) return;
+    const color = getColorForSocket(session, socket.id);
+    if (!color) return;
+    const opponent: Color = color === 'white' ? 'black' : 'white';
+    const opponentSocketId = session.sockets[opponent];
+    if (opponentSocketId) io.to(opponentSocketId).emit('chat_emote', text);
   });
 
   // ── Reset ─────────────────────────────────────────────────────────────────

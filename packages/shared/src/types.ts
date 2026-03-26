@@ -98,6 +98,19 @@ export interface GameListing {
   hostElo: number;
 }
 
+// ─── Chat emotes ─────────────────────────────────────────────────────────────
+
+export const CHAT_EMOTES = [
+  'Hello! 👋',
+  'Wow! 😮',
+  'Good move! 👏',
+  'Thanks! 🙏',
+  'Noooo! 😱',
+  'Good game! 🤝',
+] as const;
+
+export type ChatEmote = typeof CHAT_EMOTES[number];
+
 // ─── Socket.io events ────────────────────────────────────────────────────────
 
 export interface ServerToClientEvents {
@@ -133,6 +146,8 @@ export interface ServerToClientEvents {
   name_rejected: (reason: string) => void;
   /** Player's current rating (sent on register and after each rated game) */
   rating_update: (rating: PlayerRating) => void;
+  /** Opponent sent a chat emote */
+  chat_emote: (text: ChatEmote) => void;
 }
 
 export interface ClientToServerEvents {
@@ -149,6 +164,7 @@ export interface ClientToServerEvents {
   accept_draw: () => void;
   decline_draw: () => void;
   create_bot_game: (options: { difficulty: BotDifficulty; timeControl: number }) => void;
+  chat_emote: (text: ChatEmote) => void;
 }
 
 export interface InterServerEvents {}

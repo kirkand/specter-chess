@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard } from 'react-chessboard';
-import type { PlayerView, Color, Move, Square, SpyglassResult, Piece } from '@specter-chess/shared';
+import { CHAT_EMOTES } from '@specter-chess/shared';
+import type { PlayerView, Color, Move, Square, SpyglassResult, Piece, ChatEmote } from '@specter-chess/shared';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -158,6 +159,9 @@ interface GameBoardProps {
   onDeclineDraw: () => void;
   onReset: () => void;
   onReturnToLobby: () => void;
+  myEmote: ChatEmote | null;
+  opponentEmote: ChatEmote | null;
+  onEmote: (text: ChatEmote) => void;
 }
 
 export function GameBoard({
@@ -176,6 +180,9 @@ export function GameBoard({
   onDeclineDraw,
   onReset,
   onReturnToLobby,
+  myEmote,
+  opponentEmote,
+  onEmote,
 }: GameBoardProps) {
   const [boardSize, setBoardSize] = useState(getBoardSize);
   const squareSize = boardSize / 8;
@@ -185,6 +192,7 @@ export function GameBoard({
     { id: number; square: Square; piece: Piece }[]
   >([]);
   const [showOutcome, setShowOutcome] = useState(false);
+  const [showEmotePicker, setShowEmotePicker] = useState(false);
   const prevViewRef = useRef<PlayerView>(view);
 
   useEffect(() => {
@@ -422,7 +430,23 @@ export function GameBoard({
       </div>
 
       {/* Opponent row: name + ELO + captured pieces + clock */}
-      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+        {opponentEmote && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 0,
+            marginBottom: '0.3rem',
+            background: 'rgba(0,0,0,0.82)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            padding: '0.3rem 0.7rem',
+            fontSize: '0.9rem',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}>
+            {opponentEmote}
+          </div>
+        )}
         <span style={{ fontSize: '0.85rem', opacity: 0.65, whiteSpace: 'nowrap' }}>
           {view.opponentName}
         </span>
@@ -580,7 +604,23 @@ export function GameBoard({
       </div>
 
       {/* My row: name + ELO + captured pieces + clock */}
-      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+        {myEmote && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 0,
+            marginBottom: '0.3rem',
+            background: 'rgba(0,0,0,0.82)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            padding: '0.3rem 0.7rem',
+            fontSize: '0.9rem',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}>
+            {myEmote}
+          </div>
+        )}
         <span style={{ fontSize: '0.85rem', opacity: 0.65, whiteSpace: 'nowrap' }}>
           {view.playerName}
         </span>
@@ -592,7 +632,7 @@ export function GameBoard({
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', position: 'relative' }}>
         {/* Spyglass indicator */}
         <div
           style={{
@@ -608,6 +648,65 @@ export function GameBoard({
           <img src="/spyglass-cursor.svg" alt="spyglass" style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle', marginRight: '0.4em' }} />
           {view.spyglassUsedThisTurn ? 'Spyglass used' : 'Click empty square'}
         </div>
+
+        {/* Emote button + picker */}
+        {!view.gameOver && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowEmotePicker(p => !p)}
+              style={{
+                padding: '0.5rem 1.2rem',
+                borderRadius: '4px',
+                border: '2px solid rgba(255,255,255,0.2)',
+                background: showEmotePicker ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                color: '#eee',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
+            >
+              💬
+            </button>
+            {showEmotePicker && (
+              <div style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginBottom: '0.4rem',
+                background: '#1a1a2e',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '8px',
+                padding: '0.4rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+                zIndex: 20,
+                whiteSpace: 'nowrap',
+              }}>
+                {CHAT_EMOTES.map(emote => (
+                  <button
+                    key={emote}
+                    onClick={() => { onEmote(emote); setShowEmotePicker(false); }}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#e2e8f0',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {emote}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* In-game actions (hidden when game is over) */}
         {!view.gameOver && (

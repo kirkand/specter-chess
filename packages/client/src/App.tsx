@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { socket } from './socket';
 import { GameBoard } from './GameBoard';
-import type { Color, PlayerView, SpyglassResult, GameListing, PlayerRating, BotDifficulty } from '@specter-chess/shared';
+import type { Color, PlayerView, SpyglassResult, GameListing, PlayerRating, BotDifficulty, ChatEmote } from '@specter-chess/shared';
 
 function getOrCreateUuid(): string {
   const key = 'specter-uuid';
@@ -38,6 +38,10 @@ export default function App() {
   const [opponentSpyglassSquare, setOpponentSpyglassSquare] = useState<string | null>(null);
   const [lastRejected, setLastRejected] = useState(false);
   const [inCheck, setInCheck] = useState(false);
+  const [myEmote, setMyEmote] = useState<ChatEmote | null>(null);
+  const [opponentEmote, setOpponentEmote] = useState<ChatEmote | null>(null);
+  const myEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const opponentEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playerName, setPlayerName] = useState(() => getOrCreateDefaultName());
   const [nameError, setNameError] = useState<string | null>(null);
   const playerNameRef = useRef(playerName);
@@ -140,6 +144,12 @@ export default function App() {
 
     socket.on('disconnect', () => {
       setState(prev => prev.phase === 'waiting' ? { phase: 'timed_out' } : prev);
+    });
+
+    socket.on('chat_emote', (text: ChatEmote) => {
+      if (opponentEmoteTimerRef.current) clearTimeout(opponentEmoteTimerRef.current);
+      setOpponentEmote(text);
+      opponentEmoteTimerRef.current = setTimeout(() => setOpponentEmote(null), 5000);
     });
 
     socket.on('name_rejected', (reason: string) => {
@@ -266,6 +276,14 @@ export default function App() {
           setEloChange(null);
           setState({ phase: 'lobby', openGames: [], joinError: null });
           socket.emit('get_open_games');
+        }}
+        myEmote={myEmote}
+        opponentEmote={opponentEmote}
+        onEmote={(text: ChatEmote) => {
+          if (myEmoteTimerRef.current) clearTimeout(myEmoteTimerRef.current);
+          setMyEmote(text);
+          myEmoteTimerRef.current = setTimeout(() => setMyEmote(null), 5000);
+          socket.emit('chat_emote', text);
         }}
       />
     );
