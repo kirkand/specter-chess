@@ -205,7 +205,7 @@ export default function App() {
   }
 
   if (state.phase === 'waiting') {
-    return <WaitingScreen gameId={state.gameId} />;
+    return <WaitingScreen gameId={state.gameId} onReturnToLobby={() => { setState({ phase: 'lobby', openGames: [], joinError: null }); socket.emit('get_open_games'); }} />;
   }
 
   if (state.phase === 'timed_out') {
@@ -883,7 +883,7 @@ function formatAge(createdAt: number): string {
 
 // ─── Status screen ───────────────────────────────────────────────────────────
 
-function WaitingScreen({ gameId }: { gameId: string }) {
+function WaitingScreen({ gameId, onReturnToLobby }: { gameId: string; onReturnToLobby: () => void }) {
   const [copied, setCopied] = useState(false);
   const inviteUrl = gameId ? `${window.location.origin}${window.location.pathname}?game=${gameId}` : null;
 
@@ -933,6 +933,12 @@ function WaitingScreen({ gameId }: { gameId: string }) {
           </div>
         </div>
       )}
+      <button
+        onClick={onReturnToLobby}
+        style={{ marginTop: '1.5rem' }}
+      >
+        Return to Lobby
+      </button>
     </div>
   );
 }
