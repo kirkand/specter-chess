@@ -330,14 +330,11 @@ io.on('connection', socket => {
 
   // ── Set name ──────────────────────────────────────────────────────────────
 
-  socket.on('set_name', async (name: string) => {
+  socket.on('set_name', (name: string) => {
     const error = validateName(name);
     if (error) { socket.emit('name_rejected', error); return; }
     socket.data.name = name.trim();
-    if (socket.data.uuid) {
-      await db.getOrCreatePlayer(socket.data.uuid);
-      await db.updatePlayerName(socket.data.uuid, name.trim());
-    }
+    // Player record is created/updated in the DB only when they actually start a game.
   });
 
   // ── Create game ───────────────────────────────────────────────────────────
@@ -348,6 +345,7 @@ io.on('connection', socket => {
     for (let i = 0; i < 6; i++) gameId += chars[Math.floor(Math.random() * chars.length)];
 
     const whiteElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
+    if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
 
     const session: GameSession = {
       game: new SpecterChessGame(),
@@ -388,6 +386,7 @@ io.on('connection', socket => {
     if (session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
 
     const blackElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
+    if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
 
     session.sockets.black = socket.id;
     session.names.black = socket.data.name ?? 'Black';
@@ -420,6 +419,7 @@ io.on('connection', socket => {
     const diffLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
     const botElo = difficulty === 'easy' ? 800 : difficulty === 'medium' ? 1200 : 1800;
     const whiteElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
+    if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
 
     const session: GameSession = {
       game: new SpecterChessGame(),
