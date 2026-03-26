@@ -154,7 +154,7 @@ export interface ClientToServerEvents {
   move_attempt: (move: Move) => void;
   spyglass_query: (req: SpyglassRequest) => void;
   reset_game: () => void;
-  create_game: (timeControl: number) => void;
+  create_game: (options: { timeControl: number; private: boolean }) => void;
   join_game: (gameId: string) => void;
   set_name: (name: string) => void;
   register: (uuid: string) => void;

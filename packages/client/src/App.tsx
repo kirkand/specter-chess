@@ -64,11 +64,16 @@ export default function App() {
     function onConnect() {
       socket.emit('register', MY_UUID);
       if (playerNameRef.current.trim()) socket.emit('set_name', playerNameRef.current.trim());
-      setState(prev =>
-        prev.phase === 'connecting'
-          ? { phase: 'lobby', openGames: [], joinError: null }
-          : prev
-      );
+      const inviteId = new URLSearchParams(window.location.search).get('game');
+      if (inviteId) {
+        socket.emit('join_game', inviteId);
+      } else {
+        setState(prev =>
+          prev.phase === 'connecting'
+            ? { phase: 'lobby', openGames: [], joinError: null }
+            : prev
+        );
+      }
     }
 
     socket.on('connect', onConnect);
@@ -86,7 +91,11 @@ export default function App() {
 
     socket.on('join_failed', (reason: string) => {
       setState(prev =>
-        prev.phase === 'lobby' ? { ...prev, joinError: reason } : prev
+        prev.phase === 'lobby'
+          ? { ...prev, joinError: reason }
+          : prev.phase === 'connecting'
+            ? { phase: 'lobby', openGames: [], joinError: reason }
+            : prev
       );
     });
 
@@ -188,7 +197,7 @@ export default function App() {
         onNameChange={handleNameChange}
         serverStats={serverStats}
         onRefresh={() => socket.emit('get_open_games')}
-        onCreateGame={timeControl => socket.emit('create_game', timeControl)}
+        onCreateGame={(timeControl, isPrivate) => socket.emit('create_game', { timeControl, private: isPrivate })}
         onCreateBotGame={(difficulty, timeControl) => socket.emit('create_bot_game', { difficulty, timeControl })}
         onJoinGame={gameId => socket.emit('join_game', gameId)}
       />
@@ -196,12 +205,7 @@ export default function App() {
   }
 
   if (state.phase === 'waiting') {
-    return (
-      <StatusScreen
-        message="Waiting for opponent…"
-        hint={state.gameId ? `Game ID: ${state.gameId}` : 'Open a second tab to play'}
-      />
-    );
+    return <WaitingScreen gameId={state.gameId} />;
   }
 
   if (state.phase === 'timed_out') {
@@ -323,12 +327,13 @@ function LobbyScreen({
   serverStats: { onlineCount: number; gamesPlayed: number } | null;
   onRefresh: () => void;
   onNameChange: (name: string) => void;
-  onCreateGame: (timeControlSeconds: number) => void;
+  onCreateGame: (timeControlSeconds: number, isPrivate: boolean) => void;
   onCreateBotGame: (difficulty: BotDifficulty, timeControlSeconds: number) => void;
   onJoinGame: (gameId: string) => void;
 }) {
   const [selectedMinutes, setSelectedMinutes] = useState(10);
   const [selectedDifficulty, setSelectedDifficulty] = useState<BotDifficulty>('medium');
+  const [isPrivate, setIsPrivate] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(
     () => localStorage.getItem('specter-rules-open') !== 'false'
   );
@@ -529,23 +534,34 @@ function LobbyScreen({
       </div>
 
       {/* Create Game (vs Human) */}
-      <button
-        onClick={() => onCreateGame(selectedMinutes * 60)}
-        disabled={!playerName.trim() || !!nameError}
-        style={{
-          padding: '0.7rem 2rem',
-          borderRadius: '6px',
-          border: '2px solid rgba(100, 200, 100, 0.5)',
-          background: 'rgba(100, 200, 100, 0.15)',
-          color: '#eee',
-          cursor: !playerName.trim() || !!nameError ? 'not-allowed' : 'pointer',
-          fontSize: '1.1rem',
-          fontWeight: 'bold',
-          opacity: !playerName.trim() || !!nameError ? 0.35 : 1,
-        }}
-      >
-        Create Game
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+        <button
+          onClick={() => onCreateGame(selectedMinutes * 60, isPrivate)}
+          disabled={!playerName.trim() || !!nameError}
+          style={{
+            padding: '0.7rem 2rem',
+            borderRadius: '6px',
+            border: '2px solid rgba(100, 200, 100, 0.5)',
+            background: 'rgba(100, 200, 100, 0.15)',
+            color: '#eee',
+            cursor: !playerName.trim() || !!nameError ? 'not-allowed' : 'pointer',
+            fontSize: '1.1rem',
+            fontWeight: 'bold',
+            opacity: !playerName.trim() || !!nameError ? 0.35 : 1,
+          }}
+        >
+          Create Game
+        </button>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', opacity: 0.55, cursor: 'pointer', userSelect: 'none' }}>
+          <input
+            type="checkbox"
+            checked={isPrivate}
+            onChange={e => setIsPrivate(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          Private (invite only)
+        </label>
+      </div>
 
       {joinError && (
         <div style={{ color: '#f88', fontSize: '0.9rem' }}>{joinError}</div>
@@ -863,6 +879,60 @@ function formatAge(createdAt: number): string {
 }
 
 // ─── Status screen ───────────────────────────────────────────────────────────
+
+function WaitingScreen({ gameId }: { gameId: string }) {
+  const [copied, setCopied] = useState(false);
+  const inviteUrl = gameId ? `${window.location.origin}${window.location.pathname}?game=${gameId}` : null;
+
+  function copyLink() {
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '0.5rem' }} />
+      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
+      <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Waiting for opponent…</p>
+      {inviteUrl && (
+        <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+          <p style={{ fontSize: '0.85rem', opacity: 0.5, margin: 0 }}>Share this link with a friend:</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{
+              fontSize: '0.85rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '5px',
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              opacity: 0.7,
+              fontFamily: 'monospace',
+            }}>
+              {inviteUrl}
+            </span>
+            <button
+              onClick={copyLink}
+              style={{
+                padding: '0.35rem 0.75rem',
+                borderRadius: '5px',
+                border: '1px solid rgba(100,200,100,0.5)',
+                background: copied ? 'rgba(100,200,100,0.25)' : 'rgba(100,200,100,0.1)',
+                color: '#cfc',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy Link'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatusScreen({ message, hint }: { message: string; hint?: string }) {
   return (

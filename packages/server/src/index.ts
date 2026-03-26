@@ -328,7 +328,7 @@ io.on('connection', socket => {
 
   // ── Create game ───────────────────────────────────────────────────────────
 
-  socket.on('create_game', async (timeControl: number) => {
+  socket.on('create_game', async ({ timeControl, private: isPrivate }: { timeControl: number; private: boolean }) => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let gameId = '';
     for (let i = 0; i < 6; i++) gameId += chars[Math.floor(Math.random() * chars.length)];
@@ -353,12 +353,14 @@ io.on('connection', socket => {
       botSpyglassHistory: [],
     };
     sessions.set(gameId, session);
-    openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo: whiteElo });
+    if (!isPrivate) {
+      openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo: whiteElo });
+    }
 
     socket.data.color = 'white';
     socket.data.gameId = gameId;
 
-    console.log(`[create_game] ${socket.id} created game ${gameId} (${timeControl}s)`);
+    console.log(`[create_game] ${socket.id} created game ${gameId} (${timeControl}s, ${isPrivate ? 'private' : 'public'})`);
     socket.emit('game_created', gameId);
     socket.emit('waiting_for_opponent');
     broadcastOpenGames();

@@ -64,8 +64,19 @@ Hidden information requires a **server-authoritative design**. Each client recei
 | Backend | Node.js + Express + Socket.io + TypeScript |
 | Chess engine | `chess.js` for legal move generation + Specter Chess layer on top |
 | Monorepo | pnpm workspaces |
-| Database (later) | SQLite → PostgreSQL |
-| Auth (later) | JWT |
+| Database | Turso (hosted libSQL/SQLite) — falls back to local `local.db` when `TURSO_URL` is unset |
+| Auth | UUID stored in `localStorage` (no server-side authentication) |
+
+### Deployment
+
+| Service | Role |
+|---|---|
+| **Vercel** | Hosts the React frontend |
+| **Render** | Runs the Node.js server (free tier — spins down after 15 min of inactivity) |
+| **Turso** | Cloud database (ELO ratings, game history) |
+| **Porkbun** | Custom domain |
+
+> After any code change, `git push` to `main` triggers automatic redeployment on both Vercel and Render.
 
 ### Monorepo Structure
 ```
@@ -88,19 +99,22 @@ Both browser tabs connect to the same `localhost` server. One tab joins as Playe
 4. If valid: server executes move, sends updated filtered views to both players
 5. If invalid: move silently rejected
 
-### Socket.io Events (planned)
+### Socket.io Events
 - Player connects → joins game session as White or Black
 - `move_attempt` → server validates and responds
 - `spyglass_query` → server returns piece at square (or empty)
 - `game_state_update` → server pushes filtered view to each player after each action
 - `check_notification` → server notifies player they are in check
 - `confirmed_position_invalidated` → server notifies player a spyglass-confirmed piece has moved
+- `chat_message` → players send/receive emoji chat messages during a game
 
 ---
 
 ## Roadmap
 
-1. **Now:** Local 2-tab prototype (monorepo scaffold → shared game logic → server → client UI)
-2. **Later:** Deploy to mobile-friendly website
-3. **Later:** Matchmaking
-4. **Later:** Account system + ELO ratings
+1. **Done:** Local 2-tab prototype (monorepo scaffold → shared game logic → server → client UI)
+2. **Done:** Deploy to public website (Vercel + Render + Turso + custom domain)
+3. **Done:** ELO ratings (persisted in Turso)
+4. **Done:** Emoji chat system
+5. **Done:** Matchmaking
+6. **Done:** Account system
