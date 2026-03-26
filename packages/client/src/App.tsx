@@ -400,17 +400,17 @@ function LobbyScreen({
             {
               img: '/rule1-hidden-move.svg',
               alt: 'Hidden move illustration',
-              text: "Specter Chess tests your anticipation abilities. Your opponent's most recent move is always hidden to you.",
+              text: "Specter Chess tests your anticipation abilities. Your opponent's most recent move is hidden to you.",
             },
             {
               img: '/rule2-spyglass.svg',
               alt: 'Spyglass illustration',
-              text: "Tap/click on any unoccupied square once per turn to activate the spyglass. It will reveal if your opponent's piece is hiding on that square.",
+              text: "Tap/click on any square once per turn to activate the spyglass. It will reveal if your opponent's piece occupies that square.",
             },
             {
               img: '/rule3-capture-reveals.svg',
               alt: 'Capture reveals illustration',
-              text: "When a piece is taken, the attacking piece's identity and location is revealed.",
+              text: "When a piece is taken, the attacking piece's identity and location are revealed.",
             },
           ].map((rule, i) => (
             <div
