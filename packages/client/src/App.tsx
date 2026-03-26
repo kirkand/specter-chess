@@ -191,10 +191,24 @@ export default function App() {
 
   if (state.phase === 'disconnected') {
     return (
-      <StatusScreen
-        message="Opponent disconnected."
-        hint="Refresh to return to the lobby."
-      />
+      <div style={{ textAlign: 'center' }}>
+        <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '0.5rem' }} />
+        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
+        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Opponent disconnected.</p>
+        <button
+          onClick={() => {
+            setInCheck(false);
+            setLastRejected(false);
+            setSpyglassResult(null);
+            setEloChange(null);
+            setState({ phase: 'lobby', openGames: [], joinError: null });
+            socket.emit('get_open_games');
+          }}
+          style={{ marginTop: '1rem' }}
+        >
+          Return to Lobby
+        </button>
+      </div>
     );
   }
 
