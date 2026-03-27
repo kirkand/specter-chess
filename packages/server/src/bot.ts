@@ -9,6 +9,31 @@ const PIECE_VALUE: Record<string, number> = {
 
 const PROMOTION_ORDER: Record<string, number> = { q: 4, r: 3, b: 2, n: 1 };
 
+const HARD_TIME_LIMIT_MS = 7000;
+const HARD_MAX_DEPTH = 6;
+
+// ─── Search context ────────────────────────────────────────────────────────────
+
+interface SearchContext {
+  deadline: number;
+  timedOut: boolean;
+}
+
+// ─── Move ordering ─────────────────────────────────────────────────────────────
+// Captures (MVV-LVA: most valuable victim, least valuable attacker) first,
+// then queen promotions, then quiet moves. Better ordering → more alpha-beta cutoffs.
+
+function orderMoves<T extends { piece: string; captured?: string; promotion?: string }>(moves: T[]): T[] {
+  return [...moves].sort((a, b) => {
+    const promA = PROMOTION_ORDER[a.promotion ?? ''] ?? 0;
+    const promB = PROMOTION_ORDER[b.promotion ?? ''] ?? 0;
+    if (promB !== promA) return promB - promA;
+    const mvvLva = (m: T) =>
+      m.captured ? (PIECE_VALUE[m.captured] ?? 0) - (PIECE_VALUE[m.piece] ?? 0) / 10 : -1000;
+    return mvvLva(b) - mvvLva(a);
+  });
+}
+
 function toMove(m: { from: string; to: string; promotion?: string }): Move {
   const promotionMap: Record<string, Move['promotion']> = {
     q: 'queen', r: 'rook', b: 'bishop', n: 'knight',
@@ -125,21 +150,25 @@ function minimax(
   beta: number,
   maximizing: boolean,
   botColor: 'w' | 'b',
+  ctx: SearchContext,
 ): number {
+  if (ctx.timedOut || Date.now() >= ctx.deadline) {
+    ctx.timedOut = true;
+    return 0;
+  }
   if (depth === 0 || chess.isGameOver()) {
     return evaluate(chess, botColor);
   }
 
-  // Prefer queen promotions to avoid evaluating weak promotions deeply
-  const moves = chess.moves({ verbose: true })
-    .sort((a, b) => (PROMOTION_ORDER[b.promotion ?? ''] ?? 0) - (PROMOTION_ORDER[a.promotion ?? ''] ?? 0));
+  const moves = orderMoves(chess.moves({ verbose: true }));
 
   if (maximizing) {
     let best = -Infinity;
     for (const m of moves) {
       chess.move(m);
-      best = Math.max(best, minimax(chess, depth - 1, alpha, beta, false, botColor));
+      best = Math.max(best, minimax(chess, depth - 1, alpha, beta, false, botColor, ctx));
       chess.undo();
+      if (ctx.timedOut) return best;
       alpha = Math.max(alpha, best);
       if (beta <= alpha) break;
     }
@@ -148,8 +177,9 @@ function minimax(
     let best = Infinity;
     for (const m of moves) {
       chess.move(m);
-      best = Math.min(best, minimax(chess, depth - 1, alpha, beta, true, botColor));
+      best = Math.min(best, minimax(chess, depth - 1, alpha, beta, true, botColor, ctx));
       chess.undo();
+      if (ctx.timedOut) return best;
       beta = Math.min(beta, best);
       if (beta <= alpha) break;
     }
@@ -251,14 +281,35 @@ export function getBotMoveCandidates(fen: string, difficulty: BotDifficulty, bot
     return scored.map(s => toMove(s.m));
   }
 
-  // Hard: sort by minimax score, best first
-  const scored = moves.map(m => {
-    chess.move(m);
-    const score = minimax(chess, 2, -Infinity, Infinity, false, botColor);
-    chess.undo();
-    return { m, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return scored.map(s => toMove(s.m));
+  // Hard: iterative deepening minimax with 7-second time limit.
+  // Each completed depth improves move ordering for the next, maximising
+  // alpha-beta pruning efficiency. The best fully-searched result is kept.
+  const ctx: SearchContext = { deadline: Date.now() + HARD_TIME_LIMIT_MS, timedOut: false };
+  let orderedMoves = orderMoves(moves);
+  let bestScored = orderedMoves.map(m => ({ m, score: 0 }));
+
+  for (let depth = 1; depth <= HARD_MAX_DEPTH; depth++) {
+    if (Date.now() >= ctx.deadline) break;
+    ctx.timedOut = false;
+
+    const scored = orderedMoves.map(m => {
+      chess.move(m);
+      const score = minimax(chess, depth - 1, -Infinity, Infinity, false, botColor, ctx);
+      chess.undo();
+      return { m, score };
+    });
+
+    if (!ctx.timedOut) {
+      scored.sort((a, b) => b.score - a.score);
+      bestScored = scored;
+      // Re-order for next iteration so best moves are searched first
+      const scoreMap = new Map(scored.map(s => [s.m, s.score]));
+      orderedMoves = [...orderedMoves].sort((a, b) => (scoreMap.get(b) ?? 0) - (scoreMap.get(a) ?? 0));
+    } else {
+      break;
+    }
+  }
+
+  return bestScored.map(s => toMove(s.m));
 }
 
