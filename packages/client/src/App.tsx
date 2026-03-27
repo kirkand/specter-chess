@@ -199,14 +199,8 @@ export default function App() {
       }
     });
 
-    function onButtonClick(e: MouseEvent) {
-      if ((e.target as Element).closest('button')) playSound('click');
-    }
-    document.addEventListener('click', onButtonClick);
-
     return () => {
       socket.removeAllListeners();
-      document.removeEventListener('click', onButtonClick);
     };
   }, []);
 
