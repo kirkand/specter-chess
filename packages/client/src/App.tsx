@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { socket } from './socket';
 import { GameBoard } from './GameBoard';
+import { playSound } from './sounds';
 import type { Color, PlayerView, SpyglassResult, GameListing, PlayerRating, BotDifficulty, ChatEmote } from '@specter-chess/shared';
 
 function getOrCreateUuid(): string {
@@ -42,6 +43,10 @@ export default function App() {
   const [opponentEmote, setOpponentEmote] = useState<ChatEmote | null>(null);
   const myEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opponentEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPlyCountRef = useRef<number>(-1);
+  const prevCapturedByMeRef = useRef<number>(0);
+  const prevCapturedByOpponentRef = useRef<number>(0);
+  const prevIsMyTurnRef = useRef<boolean>(false);
   const [playerName, setPlayerName] = useState(() => getOrCreateDefaultName());
   const [nameError, setNameError] = useState<string | null>(null);
   const playerNameRef = useRef(playerName);
@@ -112,6 +117,10 @@ export default function App() {
       // Snapshot current ELO so we can compute the delta after the game
       preGameEloRef.current = myRating?.elo ?? null;
       setEloChange(null);
+      prevPlyCountRef.current = -1;
+      prevCapturedByMeRef.current = 0;
+      prevCapturedByOpponentRef.current = 0;
+      prevIsMyTurnRef.current = false;
       setState(prev => ({
         phase: 'playing',
         color,
@@ -126,11 +135,26 @@ export default function App() {
       });
       setInCheck(view.inCheck);
       if (view.isMyTurn) setLastRejected(false);
+
+      const prevPly = prevPlyCountRef.current;
+      const moved = prevPly >= 0 && view.plyCount > prevPly;
+      const captured =
+        view.capturedByMe.length > prevCapturedByMeRef.current ||
+        view.capturedByOpponent.length > prevCapturedByOpponentRef.current;
+
+      if (moved) playSound(captured ? 'pieceCapture' : 'pieceMove');
+      if (view.isMyTurn && !prevIsMyTurnRef.current) playSound('yourTurn', moved ? 400 : 0);
+
+      prevPlyCountRef.current = view.plyCount;
+      prevCapturedByMeRef.current = view.capturedByMe.length;
+      prevCapturedByOpponentRef.current = view.capturedByOpponent.length;
+      prevIsMyTurnRef.current = view.isMyTurn;
     });
 
     socket.on('spyglass_result', (result: SpyglassResult) => {
       setSpyglassResult(result);
       setTimeout(() => setSpyglassResult(null), 3000);
+      playSound(result.piece ? 'spyglassSuccess' : 'spyglassFail');
     });
 
     socket.on('opponent_spyglass', (square: string) => {
@@ -145,6 +169,7 @@ export default function App() {
 
     socket.on('check_notification', () => {
       setInCheck(true);
+      playSound('check');
     });
 
     socket.on('opponent_disconnected', () => {
@@ -177,8 +202,14 @@ export default function App() {
       }
     });
 
+    function onButtonClick(e: MouseEvent) {
+      if ((e.target as Element).closest('button')) playSound('click');
+    }
+    document.addEventListener('click', onButtonClick);
+
     return () => {
       socket.removeAllListeners();
+      document.removeEventListener('click', onButtonClick);
     };
   }, []);
 

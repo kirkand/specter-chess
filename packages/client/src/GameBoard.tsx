@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { CHAT_EMOTES } from '@specter-chess/shared';
 import type { PlayerView, Color, Move, Square, SpyglassResult, Piece, ChatEmote } from '@specter-chess/shared';
+import { isSoundEnabled, setSoundEnabled } from './sounds';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -193,6 +194,7 @@ export function GameBoard({
   >([]);
   const [showOutcome, setShowOutcome] = useState(false);
   const [showEmotePicker, setShowEmotePicker] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const prevViewRef = useRef<PlayerView>(view);
 
   useEffect(() => {
@@ -648,6 +650,27 @@ export function GameBoard({
           <img src="/spyglass-cursor.svg" alt="spyglass" style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle', marginRight: '0.4em' }} />
           {view.spyglassUsedThisTurn ? 'Spyglass used' : 'Click empty square'}
         </div>
+
+        {/* Sound toggle */}
+        <button
+          onClick={() => {
+            const next = !soundOn;
+            setSoundOn(next);
+            setSoundEnabled(next);
+          }}
+          title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+          style={{
+            padding: '0.5rem 0.75rem',
+            borderRadius: '4px',
+            border: '2px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.06)',
+            color: soundOn ? '#eee' : '#555',
+            cursor: 'pointer',
+            fontSize: '1rem',
+          }}
+        >
+          {soundOn ? '🔊' : '🔇'}
+        </button>
 
         {/* Emote button + picker */}
         {!view.gameOver && (
