@@ -468,7 +468,7 @@ export function GameBoard({
           onSquareClick={handleSquareClick}
           customSquareStyles={customSquareStyles}
           arePiecesDraggable={isTurn && !view.gameOver}
-          animationDuration={0}
+          animationDuration={animatingInSquares.size > 0 ? 0 : 200}
         />
         {/* Game over outcome overlay */}
         {showOutcome && (() => {
