@@ -223,7 +223,13 @@ function scheduleBotMove(gameId: string, session: GameSession) {
         }
       }
 
-      if (candidates.length === 0) return;
+      // Perspective FEN may show no legal moves when the true board still has some
+      // (e.g. stale white positions make an escape square look occupied/checked).
+      // Fall back to the true board so the bot never incorrectly concedes.
+      if (candidates.length === 0) {
+        candidates = getBotMoveCandidates(session.game.getFen(), session.botDifficulty!, 'b');
+      }
+      if (candidates.length === 0) return; // genuinely no legal moves
 
       stopTimer(session, botColor);
       session.drawOfferedBy = null;
