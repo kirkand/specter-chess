@@ -375,8 +375,8 @@ function LobbyScreen({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', padding: '2rem' }}>
-      <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto' }} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', padding: '1rem 2rem 2rem' }}>
+      <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '-0.75rem' }} />
       <h1 style={{ fontSize: '2rem', margin: 0 }}>Specter Chess</h1>
 
       {serverStats && (

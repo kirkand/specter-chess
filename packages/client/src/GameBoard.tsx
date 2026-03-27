@@ -412,7 +412,7 @@ export function GameBoard({
     : "Opponent's turn";
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '0.4rem 1rem 1rem' }}>
       <h2 style={{ fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
         <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '2.4rem', width: 'auto' }} />
         Specter Chess —{' '}
