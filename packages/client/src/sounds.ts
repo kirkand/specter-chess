@@ -1,6 +1,6 @@
 const SOUNDS = {
   click: '/sounds/click.ogg',
-  yourTurn: '/sounds/your-turn.ogg',
+
   pieceMove: '/sounds/piece-move.ogg',
   pieceCapture: '/sounds/piece-capture.ogg',
   check: '/sounds/check.ogg',

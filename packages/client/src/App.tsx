@@ -46,7 +46,6 @@ export default function App() {
   const prevPlyCountRef = useRef<number>(-1);
   const prevCapturedByMeRef = useRef<number>(0);
   const prevCapturedByOpponentRef = useRef<number>(0);
-  const prevIsMyTurnRef = useRef<boolean>(false);
   const [playerName, setPlayerName] = useState(() => getOrCreateDefaultName());
   const [nameError, setNameError] = useState<string | null>(null);
   const playerNameRef = useRef(playerName);
@@ -120,7 +119,6 @@ export default function App() {
       prevPlyCountRef.current = -1;
       prevCapturedByMeRef.current = 0;
       prevCapturedByOpponentRef.current = 0;
-      prevIsMyTurnRef.current = false;
       setState(prev => ({
         phase: 'playing',
         color,
@@ -143,12 +141,11 @@ export default function App() {
         view.capturedByOpponent.length > prevCapturedByOpponentRef.current;
 
       if (moved) playSound(captured ? 'pieceCapture' : 'pieceMove');
-      if (view.isMyTurn && !prevIsMyTurnRef.current) playSound('yourTurn', moved ? 400 : 0);
+
 
       prevPlyCountRef.current = view.plyCount;
       prevCapturedByMeRef.current = view.capturedByMe.length;
       prevCapturedByOpponentRef.current = view.capturedByOpponent.length;
-      prevIsMyTurnRef.current = view.isMyTurn;
     });
 
     socket.on('spyglass_result', (result: SpyglassResult) => {

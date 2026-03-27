@@ -116,10 +116,11 @@ function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function ClockDisplay({ timeMs, active }: { timeMs: number; active: boolean }) {
+function ClockDisplay({ timeMs, active, pulse }: { timeMs: number; active: boolean; pulse?: boolean }) {
   const low = timeMs > 0 && timeMs < 30_000;
   return (
     <div
+      className={pulse ? 'clock-pulse' : undefined}
       style={{
         fontFamily: 'monospace',
         fontSize: '1.3rem',
@@ -195,6 +196,8 @@ export function GameBoard({
   const [showOutcome, setShowOutcome] = useState(false);
   const [showEmotePicker, setShowEmotePicker] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const [clockPulse, setClockPulse] = useState(false);
+  const prevIsMyTurnRef = useRef(view.isMyTurn);
   const prevViewRef = useRef<PlayerView>(view);
 
   useEffect(() => {
@@ -268,6 +271,14 @@ export function GameBoard({
     }, 100);
     return () => clearInterval(interval);
   }, [view.isMyTurn, view.gameOver, playerColor, opponentColor]);
+
+  useEffect(() => {
+    if (view.isMyTurn && !prevIsMyTurnRef.current) {
+      setClockPulse(true);
+      setTimeout(() => setClockPulse(false), 1000);
+    }
+    prevIsMyTurnRef.current = view.isMyTurn;
+  }, [view.isMyTurn]);
 
   const position = useMemo(() => buildPosition(view), [view]);
 
@@ -412,6 +423,7 @@ export function GameBoard({
 
       {/* Status bar */}
       <div
+        className={clockPulse && isTurn ? 'clock-pulse' : undefined}
         style={{
           padding: '0.4rem 1.2rem',
           borderRadius: '4px',
@@ -630,7 +642,7 @@ export function GameBoard({
           {view.playerElo}
         </span>
         <div style={{ flex: 1 }}><CapturedPieces pieces={view.capturedByOpponent} /></div>
-        <ClockDisplay timeMs={displayedTime[playerColor]} active={view.isMyTurn && !view.gameOver} />
+        <ClockDisplay timeMs={displayedTime[playerColor]} active={view.isMyTurn && !view.gameOver} pulse={clockPulse} />
       </div>
 
       {/* Controls */}
