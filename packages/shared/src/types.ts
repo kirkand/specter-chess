@@ -172,7 +172,7 @@ export interface InterServerEvents {}
 
 export interface SocketData {
   color: Color;
-  gameId: string;
+  gameId?: string;
   name: string;
   uuid?: string;
 }
