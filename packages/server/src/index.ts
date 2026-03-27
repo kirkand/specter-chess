@@ -359,7 +359,7 @@ io.on('connection', socket => {
     if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
     openGames.delete(gameId);
     sessions.delete(gameId);
-    socket.data.gameId = undefined;
+    delete socket.data.gameId;
     broadcastOpenGames();
   });
 
