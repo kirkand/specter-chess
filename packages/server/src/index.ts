@@ -349,6 +349,20 @@ io.on('connection', socket => {
     socket.emit('open_games_update', buildOpenGamesList());
   });
 
+  // ── Cancel waiting game ───────────────────────────────────────────────────
+
+  socket.on('cancel_waiting_game', () => {
+    const gameId = socket.data.gameId;
+    if (!gameId) return;
+    const session = sessions.get(gameId);
+    if (!session || session.sockets.black) return; // only cancel if no opponent has joined
+    if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
+    openGames.delete(gameId);
+    sessions.delete(gameId);
+    socket.data.gameId = undefined;
+    broadcastOpenGames();
+  });
+
   // ── Set name ──────────────────────────────────────────────────────────────
 
   socket.on('set_name', (name: string) => {

@@ -233,7 +233,7 @@ export default function App() {
   }
 
   if (state.phase === 'waiting') {
-    return <WaitingScreen gameId={state.gameId} onReturnToLobby={() => { setState({ phase: 'lobby', openGames: [], joinError: null }); socket.emit('get_open_games'); }} />;
+    return <WaitingScreen gameId={state.gameId} onReturnToLobby={() => { socket.emit('cancel_waiting_game'); setState({ phase: 'lobby', openGames: [], joinError: null }); socket.emit('get_open_games'); }} />;
   }
 
   if (state.phase === 'timed_out') {

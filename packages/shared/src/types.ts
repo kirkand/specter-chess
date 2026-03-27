@@ -159,6 +159,7 @@ export interface ClientToServerEvents {
   set_name: (name: string) => void;
   register: (uuid: string) => void;
   get_open_games: () => void;
+  cancel_waiting_game: () => void;
   resign: () => void;
   offer_draw: () => void;
   accept_draw: () => void;
