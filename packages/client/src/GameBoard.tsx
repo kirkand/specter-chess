@@ -869,7 +869,7 @@ export function GameBoard({
           }}
         >
           <img src="/spyglass-cursor.svg" alt="spyglass" style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle', marginRight: '0.4em' }} />
-          {view.spyglassUsedThisTurn ? 'Spyglass used' : 'Click empty square'}
+          {view.spyglassUsedThisTurn ? 'Spyglass used' : 'Use Spyglass'}
         </div>
 
         {/* Sound toggle */}
