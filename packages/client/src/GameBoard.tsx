@@ -194,6 +194,17 @@ export function GameBoard({
     { id: number; square: Square; piece: Piece }[]
   >([]);
   const [showOutcome, setShowOutcome] = useState(false);
+  // Two-step capture animation: while set, the capturing piece is shown at the
+  // intermediate square (where it actually moved FROM) rather than the confirmed
+  // capture square, so react-chessboard slides stale-pos → fromSquare first.
+  // capturedPieceFen keeps the captured own piece visible in the position during phase 1.
+  const [captureAnim, setCaptureAnim] = useState<{
+    confirmedSquare: Square;
+    fromSquare: Square;
+    capturedPieceFen: string | null;
+  } | null>(null);
+  // Fade-out overlay for the captured own piece (shown while the attacker slides in).
+  const [capturedOverlay, setCapturedOverlay] = useState<{ square: Square; piece: Piece } | null>(null);
   const [showEmotePicker, setShowEmotePicker] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [clockPulse, setClockPulse] = useState(false);
@@ -225,6 +236,49 @@ export function GameBoard({
 
     // Only react when a new confirmation just arrived (spyglass was used)
     if (newlyConfirmed.length === 0) return;
+
+    // A capture reveal (opponent captured our piece, automatically exposing the attacker)
+    // always coincides with losing one of our own pieces. A spyglass use never does.
+    const ownPieceLost = view.ownPieces.length < prev.ownPieces.length;
+    if (ownPieceLost) {
+      const fromSq = view.captureRevealFromSquare;
+      const captureEntry = newlyConfirmed[0];
+
+      // Find which of our pieces was taken (to show a fade-out overlay).
+      const currSquares = new Set(view.ownPieces.map(p => p.square));
+      const lostEntry = prev.ownPieces.find(p => !currSquares.has(p.square));
+
+      if (fromSq && captureEntry && fromSq !== captureEntry.square) {
+        // Two-step animation:
+        //   leg 1: stale-position → fromSquare  (slide, 200 ms)
+        //   pause: 200 ms
+        //   leg 2: fromSquare → capture-square  (slide, 200 ms)
+        //
+        // Keep the captured piece in the position during leg 1 + pause so it stays
+        // visible. At leg 2 start, remove it from position and start the fade overlay.
+        setCaptureAnim({
+          confirmedSquare: captureEntry.square,
+          fromSquare: fromSq,
+          capturedPieceFen: lostEntry ? pieceToFen(lostEntry.piece) : null,
+        });
+        const t = setTimeout(() => {
+          setCaptureAnim(null);
+          if (lostEntry) {
+            setCapturedOverlay({ square: captureEntry.square, piece: lostEntry.piece });
+            setTimeout(() => setCapturedOverlay(null), 200);
+          }
+        }, 400); // 200 ms slide + 200 ms pause
+        return () => clearTimeout(t);
+      }
+
+      // Single-step: the attacker slides directly from its stale position to the
+      // capture square. Fade the captured piece out over the same 200 ms duration.
+      if (lostEntry) {
+        setCapturedOverlay({ square: lostEntry.square, piece: lostEntry.piece });
+        setTimeout(() => setCapturedOverlay(null), 200);
+      }
+      return;
+    }
 
     const newSquares = newlyConfirmed.map(p => p.square);
     setAnimatingInSquares(s => new Set([...s, ...newSquares]));
@@ -280,7 +334,23 @@ export function GameBoard({
     prevIsMyTurnRef.current = view.isMyTurn;
   }, [view.isMyTurn]);
 
-  const position = useMemo(() => buildPosition(view), [view]);
+  const position = useMemo(() => {
+    const pos = buildPosition(view);
+    if (captureAnim) {
+      // Move the capturing piece to the intermediate square for the first slide leg.
+      const capturingFen = pos[captureAnim.confirmedSquare];
+      if (capturingFen) {
+        delete pos[captureAnim.confirmedSquare];
+        pos[captureAnim.fromSquare] = capturingFen;
+      }
+      // Keep the captured own piece visible in the position during phase 1 so it
+      // doesn't disappear before the attacker arrives.
+      if (captureAnim.capturedPieceFen) {
+        pos[captureAnim.confirmedSquare] = captureAnim.capturedPieceFen;
+      }
+    }
+    return pos;
+  }, [view, captureAnim]);
 
   const isTurn = view.isMyTurn;
   const canSpyglass = isTurn && !view.spyglassUsedThisTurn && view.plyCount > 0;
@@ -579,6 +649,37 @@ export function GameBoard({
               }}
             >
               Opponent Spy
+            </div>
+          );
+        })()}
+
+        {/* Fade-out overlay for the captured own piece while the attacker slides in */}
+        {capturedOverlay && (() => {
+          const { top, left } = squareToPixel(capturedOverlay.square, playerColor, squareSize);
+          const { piece } = capturedOverlay;
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                top,
+                left,
+                width: squareSize,
+                height: squareSize,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: squareSize * 0.75,
+                lineHeight: 1,
+                animation: 'spooky-out 200ms ease forwards',
+                color: piece.color === 'white' ? '#f0f0f0' : '#1a1a1a',
+                textShadow: piece.color === 'white'
+                  ? '0 0 4px rgba(0,0,0,0.9)'
+                  : '0 0 4px rgba(255,255,255,0.5)',
+                pointerEvents: 'none',
+                zIndex: 11,
+              }}
+            >
+              {UNICODE_PIECE[`${piece.color}-${piece.type}`]}
             </div>
           );
         })()}

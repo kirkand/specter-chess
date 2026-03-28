@@ -70,6 +70,12 @@ export interface PlayerView {
   myDrawOfferPending: boolean;
   /** Whether this game is against a bot */
   isVsBot: boolean;
+  /**
+   * Set when an opponent piece just captured one of our pieces.
+   * The square the capturing piece moved FROM — used to animate the two-step
+   * reveal: stale-position → fromSquare → capture-square.
+   */
+  captureRevealFromSquare?: Square;
 }
 
 /** Subset returned by SpecterChessGame.getPlayerView() — server augments the rest before sending. */

@@ -113,6 +113,9 @@ export class SpecterChessGame {
   /** The most recent move made by each color (used to clean up stale snapshot on spyglass) */
   private lastMove: Record<Color, { from: Square; to: Square; rookFrom?: Square; rookTo?: Square } | null>;
 
+  /** The square the capturing piece came FROM, sent once to the captured player for animation. */
+  private captureRevealFrom: Partial<Record<Color, Square>>;
+
   /** Whose turn it is */
   private currentTurn: Color;
 
@@ -142,6 +145,7 @@ export class SpecterChessGame {
     this.spyglassUsed = { white: false, black: false };
     this.spyglassDisabled = { white: false, black: false };
     this.lastMove = { white: null, black: null };
+    this.captureRevealFrom = {};
     this.currentTurn = 'white';
   }
 
@@ -267,6 +271,9 @@ export class SpecterChessGame {
     if (this.currentTurn !== color) return false;
     if (this.isGameOver) return false;
 
+    // Clear any capture reveal that was pending for this player (they've now seen it).
+    delete this.captureRevealFrom[color];
+
     // Snapshot the moving player's current positions BEFORE they move.
     // This becomes what the opponent will see after this turn.
     const preMovePieces = getPiecesForColor(this.chess, color);
@@ -319,6 +326,9 @@ export class SpecterChessGame {
         color: fromChessColor(result.color),
       };
       this.confirmedPositions[opponent].set(movedTo, capturingPiece);
+      // Record where the capturing piece came from so the client can animate
+      // the two-step reveal: stale-position → movedFrom → movedTo.
+      this.captureRevealFrom[opponent] = movedFrom;
 
       // Remove the capturing piece from the captured player's snapshot at its old square
       // to avoid showing it at both the old (stale) and new (confirmed) positions.
@@ -454,6 +464,7 @@ export class SpecterChessGame {
       capturedByOpponent: getCapturedPieces(this.chess, toChessColor(color)),
       gameOver: this.isGameOver,
       winner: this.winner,
+      captureRevealFromSquare: this.captureRevealFrom[color],
     };
   }
 
