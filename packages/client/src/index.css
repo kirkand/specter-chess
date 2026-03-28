@@ -38,6 +38,13 @@ body {
   animation: clock-pulse 1s ease-in-out forwards;
 }
 
+@keyframes flame-trail {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  55%  { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
 @keyframes spooky-out {
   0%   { opacity: 1; transform: scale(1); filter: none; }
   35%  { opacity: 0.65; transform: scale(0.9); filter: blur(4px) brightness(2); }

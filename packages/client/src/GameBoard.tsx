@@ -8,6 +8,7 @@ import { isSoundEnabled, setSoundEnabled } from './sounds';
 
 const MAX_BOARD_SIZE = 520;
 const ANIM_DURATION = 650;
+const TRAIL_DURATION = 350; // flame streak lives slightly longer than the 200 ms slide
 
 let nextAnimId = 0;
 
@@ -205,11 +206,14 @@ export function GameBoard({
   } | null>(null);
   // Fade-out overlay for the captured own piece (shown while the attacker slides in).
   const [capturedOverlay, setCapturedOverlay] = useState<{ square: Square; piece: Piece } | null>(null);
+  // Flame trail segments rendered as SVG overlays during capture slides.
+  const [flameTrails, setFlameTrails] = useState<{ id: number; from: Square; to: Square }[]>([]);
   const [showEmotePicker, setShowEmotePicker] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [clockPulse, setClockPulse] = useState(false);
   const prevIsMyTurnRef = useRef(view.isMyTurn);
   const prevViewRef = useRef<PlayerView>(view);
+  const lastSubmittedMoveRef = useRef<Move | null>(null);
 
   useEffect(() => {
     function handleResize() { setBoardSize(getBoardSize()); }
@@ -234,6 +238,24 @@ export function GameBoard({
     const prevConfirmed = new Set(prev.confirmedOpponentPositions.map(p => p.square));
     const newlyConfirmed = view.confirmedOpponentPositions.filter(p => !prevConfirmed.has(p.square));
 
+    // Helper: add a flame trail segment that auto-removes after TRAIL_DURATION.
+    function addTrail(from: Square, to: Square) {
+      if (from === to) return;
+      const tid = nextAnimId++;
+      setFlameTrails(ts => [...ts, { id: tid, from, to }]);
+      setTimeout(() => setFlameTrails(ts => ts.filter(t => t.id !== tid)), TRAIL_DURATION);
+    }
+
+    // Own capture: we just captured an opponent piece (capturedByMe grew).
+    // Show a flame trail along the path of our own piece.
+    if (view.capturedByMe.length > prev.capturedByMe.length && lastSubmittedMoveRef.current) {
+      addTrail(lastSubmittedMoveRef.current.from, lastSubmittedMoveRef.current.to);
+    }
+    // Clear the stored move once our turn ends (turn flipped from ours to theirs).
+    if (!view.isMyTurn && prev.isMyTurn) {
+      lastSubmittedMoveRef.current = null;
+    }
+
     // Only react when a new confirmation just arrived (spyglass was used)
     if (newlyConfirmed.length === 0) return;
 
@@ -248,11 +270,30 @@ export function GameBoard({
       const currSquares = new Set(view.ownPieces.map(p => p.square));
       const lostEntry = prev.ownPieces.find(p => !currSquares.has(p.square));
 
+      // Find where the capturing piece was last shown (for the flame trail start).
+      // We look for the piece that *disappeared* from the snapshot: as the snapshot
+      // advances from S_{N-1} to S_N and the fromSquare is filtered out, the
+      // capturing piece's old stale square drops out of view. This is unambiguous
+      // even when multiple pieces share the same type (e.g., two pawns).
+      const currSnapshotSquares = new Set(view.opponentSnapshot.map(p => p.square));
+      const prevVisible = captureEntry ? (() => {
+        const gone = prev.opponentSnapshot.find(
+          p => !currSnapshotSquares.has(p.square) &&
+               p.piece.type === captureEntry.piece.type &&
+               p.piece.color === captureEntry.piece.color
+        );
+        if (gone) return gone.square;
+        // Fallback: player had a confirmed position for this piece type/color
+        return prev.confirmedOpponentPositions.find(
+          p => p.piece.type === captureEntry.piece.type && p.piece.color === captureEntry.piece.color
+        )?.square;
+      })() : undefined;
+
       if (fromSq && captureEntry && fromSq !== captureEntry.square) {
         // Two-step animation:
-        //   leg 1: stale-position → fromSquare  (slide, 200 ms)
+        //   leg 1: stale-position → fromSquare  (slide, 200 ms) + flame trail
         //   pause: 200 ms
-        //   leg 2: fromSquare → capture-square  (slide, 200 ms)
+        //   leg 2: fromSquare → capture-square  (slide, 200 ms) + flame trail
         //
         // Keep the captured piece in the position during leg 1 + pause so it stays
         // visible. At leg 2 start, remove it from position and start the fade overlay.
@@ -261,8 +302,10 @@ export function GameBoard({
           fromSquare: fromSq,
           capturedPieceFen: lostEntry ? pieceToFen(lostEntry.piece) : null,
         });
+        if (prevVisible) addTrail(prevVisible, fromSq); // leg 1 trail
         const t = setTimeout(() => {
           setCaptureAnim(null);
+          addTrail(fromSq, captureEntry.square); // leg 2 trail
           if (lostEntry) {
             setCapturedOverlay({ square: captureEntry.square, piece: lostEntry.piece });
             setTimeout(() => setCapturedOverlay(null), 200);
@@ -272,7 +315,8 @@ export function GameBoard({
       }
 
       // Single-step: the attacker slides directly from its stale position to the
-      // capture square. Fade the captured piece out over the same 200 ms duration.
+      // capture square. Flame trail + fade out the captured piece simultaneously.
+      if (prevVisible && captureEntry) addTrail(prevVisible, captureEntry.square);
       if (lostEntry) {
         setCapturedOverlay({ square: lostEntry.square, piece: lostEntry.piece });
         setTimeout(() => setCapturedOverlay(null), 200);
@@ -442,7 +486,9 @@ export function GameBoard({
       } else if (isOwnPiece(sq)) {
         setSelectedSquare(sq);
       } else {
-        onMove({ from: selectedSquare, to: sq, promotion: getPromotion(selectedSquare, sq) });
+        const move = { from: selectedSquare, to: sq, promotion: getPromotion(selectedSquare, sq) };
+        lastSubmittedMoveRef.current = move;
+        onMove(move);
         setSelectedSquare(null);
       }
       return;
@@ -461,7 +507,9 @@ export function GameBoard({
   function handlePieceDrop(sourceSquare: string, targetSquare: string): boolean {
     if (!isTurn) return false;
     setSelectedSquare(null);
-    onMove({ from: sourceSquare as Square, to: targetSquare as Square, promotion: getPromotion(sourceSquare as Square, targetSquare as Square) });
+    const move = { from: sourceSquare as Square, to: targetSquare as Square, promotion: getPromotion(sourceSquare as Square, targetSquare as Square) };
+    lastSubmittedMoveRef.current = move;
+    onMove(move);
     return true; // Optimistically accept; server will reject if invalid
   }
 
@@ -652,6 +700,66 @@ export function GameBoard({
             </div>
           );
         })()}
+
+        {/* Flame streak overlays for capture slides */}
+        {flameTrails.map(trail => {
+          const { left: fx1, top: fy1 } = squareToPixel(trail.from, playerColor, squareSize);
+          const { left: fx2, top: fy2 } = squareToPixel(trail.to,   playerColor, squareSize);
+          const x1 = fx1 + squareSize / 2;
+          const y1 = fy1 + squareSize / 2;
+          const x2 = fx2 + squareSize / 2;
+          const y2 = fy2 + squareSize / 2;
+          const filterId = `flame-glow-${trail.id}`;
+          const anim = (delay = 0) =>
+            `flame-trail ${TRAIL_DURATION}ms ${delay}ms ease-out both`;
+          // Particles evenly spaced along the path
+          const particles = Array.from({ length: 5 }, (_, i) => {
+            const t = (i + 1) / 6;
+            return {
+              cx: x1 + (x2 - x1) * t,
+              cy: y1 + (y2 - y1) * t,
+              r: squareSize * (0.05 + 0.03 * (i % 3)),
+              fill: i % 2 === 0 ? '#ff6600' : '#ffdd00',
+              delay: i * 25,
+            };
+          });
+          return (
+            <svg
+              key={trail.id}
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 12, overflow: 'visible' }}
+              width={boardSize}
+              height={boardSize}
+            >
+              <defs>
+                <filter id={filterId} x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur stdDeviation="5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {/* Outer glow */}
+              <line x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="#ff2200" strokeWidth={squareSize * 0.18} strokeLinecap="round"
+                filter={`url(#${filterId})`} style={{ animation: anim() }} />
+              {/* Mid flame */}
+              <line x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="#ff8800" strokeWidth={squareSize * 0.09} strokeLinecap="round"
+                style={{ animation: anim() }} />
+              {/* Hot core */}
+              <line x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="#ffee44" strokeWidth={squareSize * 0.035} strokeLinecap="round"
+                style={{ animation: anim() }} />
+              {/* Flame particles */}
+              {particles.map((p, i) => (
+                <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill={p.fill}
+                  filter={`url(#${filterId})`}
+                  style={{ animation: anim(p.delay) }} />
+              ))}
+            </svg>
+          );
+        })}
 
         {/* Fade-out overlay for the captured own piece while the attacker slides in */}
         {capturedOverlay && (() => {
