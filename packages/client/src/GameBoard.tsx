@@ -195,6 +195,7 @@ export function GameBoard({
     { id: number; square: Square; piece: Piece }[]
   >([]);
   const [showOutcome, setShowOutcome] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
   // Two-step capture animation: while set, the capturing piece is shown at the
   // intermediate square (where it actually moved FROM) rather than the confirmed
   // capture square, so react-chessboard slides stale-pos → fromSquare first.
@@ -221,13 +222,21 @@ export function GameBoard({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Show outcome overlay briefly when the game ends
+  // Show outcome overlay briefly when the game ends, then show the CTA panel
   useEffect(() => {
     if (!view.gameOver) return;
     setShowOutcome(true);
     const t = setTimeout(() => setShowOutcome(false), 3500);
     return () => clearTimeout(t);
   }, [view.gameOver]);
+
+  const outcomeText = view.gameOver
+    ? view.winner === null
+      ? 'Draw'
+      : view.winner === playerColor
+      ? 'You Win!'
+      : 'You Lose'
+    : null;
 
   // Detect spyglass animations: new confirmed position = animate in,
   // disappeared snapshot square = animate out.
@@ -603,43 +612,30 @@ export function GameBoard({
           animationDuration={animatingInSquares.size > 0 ? 0 : 200}
         />
         {/* Game over outcome overlay */}
-        {showOutcome && (() => {
-          const outcomeText = view.winner === null
-            ? 'Draw'
-            : view.winner === playerColor
-            ? 'You Win!'
-            : 'You Lose';
-          const color = view.winner === null
-            ? '#e2e8f0'
-            : view.winner === playerColor
-            ? '#86efac'
-            : '#fca5a5';
-          return (
+        {showOutcome && outcomeText && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 30,
+          }}>
             <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              zIndex: 30,
+              background: '#1a1a2e',
+              border: '2px solid rgba(100,160,255,0.5)',
+              borderRadius: '10px',
+              padding: '0.6rem 1.6rem',
+              color: '#fff',
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              letterSpacing: '0.04em',
             }}>
-              <div style={{
-                background: 'rgba(0,0,0,0.72)',
-                border: `2px solid ${color}`,
-                borderRadius: '10px',
-                padding: '0.6rem 1.6rem',
-                color,
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                letterSpacing: '0.04em',
-                textShadow: `0 0 20px ${color}`,
-              }}>
-                {outcomeText}
-              </div>
+              {outcomeText}
             </div>
-          );
-        })()}
+          </div>
+        )}
 
         {/* Spyglass result label overlaid on the target square */}
         {spyglassResult && (() => {
@@ -1015,7 +1011,7 @@ export function GameBoard({
               </button>
             )}
             <button
-              onClick={() => { if (confirm('Resign this game?')) onResign(); }}
+              onClick={() => setShowResignConfirm(true)}
               style={{
                 padding: '0.5rem 1.2rem',
                 borderRadius: '4px',
@@ -1031,23 +1027,7 @@ export function GameBoard({
           </>
         )}
 
-        {view.gameOver ? (
-          <button
-            onClick={onReturnToLobby}
-            style={{
-              padding: '0.5rem 1.2rem',
-              borderRadius: '4px',
-              border: '2px solid rgba(100,160,255,0.5)',
-              background: 'rgba(100,160,255,0.15)',
-              color: '#adf',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-            }}
-          >
-            Return to Lobby
-          </button>
-        ) : (
+        {!view.gameOver && (
           <button
             onClick={onReset}
             style={{
@@ -1064,6 +1044,123 @@ export function GameBoard({
           </button>
         )}
       </div>
+
+      {/* Resign confirmation modal */}
+      {showResignConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem',
+          background: '#1a1a2e',
+          border: '2px solid rgba(100,160,255,0.4)',
+          borderRadius: '12px',
+          padding: '1.5rem 2.5rem',
+          boxShadow: '0 0 40px rgba(0,0,0,0.8)',
+        }}>
+          <div style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 'bold' }}>
+            Resign this game?
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              onClick={() => { setShowResignConfirm(false); onResign(); }}
+              style={{
+                padding: '0.6rem 1.5rem',
+                borderRadius: '6px',
+                border: '2px solid rgba(100,160,255,0.5)',
+                background: '#1a1a2e',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '1.05rem',
+                fontWeight: 'bold',
+              }}
+            >
+              Resign
+            </button>
+            <button
+              onClick={() => setShowResignConfirm(false)}
+              style={{
+                padding: '0.6rem 1.5rem',
+                borderRadius: '6px',
+                border: '2px solid #fff',
+                background: '#fff',
+                color: '#1a1a2e',
+                cursor: 'pointer',
+                fontSize: '1.05rem',
+                fontWeight: 'bold',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Game over CTA panel — fixed center of screen */}
+      {view.gameOver && outcomeText && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem',
+          background: '#1a1a2e',
+          border: '2px solid rgba(100,160,255,0.4)',
+          borderRadius: '12px',
+          padding: '1.5rem 2.5rem',
+          boxShadow: '0 0 40px rgba(0,0,0,0.8)',
+        }}>
+          <div style={{
+            color: '#fff',
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            letterSpacing: '0.04em',
+          }}>
+            {outcomeText}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              onClick={onReset}
+              style={{
+                padding: '0.6rem 1.5rem',
+                borderRadius: '6px',
+                border: '2px solid rgba(100,160,255,0.5)',
+                background: '#1a1a2e',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '1.05rem',
+                fontWeight: 'bold',
+              }}
+            >
+              Rematch?
+            </button>
+            <button
+              onClick={onReturnToLobby}
+              style={{
+                padding: '0.6rem 1.5rem',
+                borderRadius: '6px',
+                border: '2px solid #fff',
+                background: '#fff',
+                color: '#1a1a2e',
+                cursor: 'pointer',
+                fontSize: '1.05rem',
+                fontWeight: 'bold',
+              }}
+            >
+              Return to Lobby
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
