@@ -200,7 +200,7 @@ export default function App() {
         return { phase: 'disconnected' };
       });
       setRematchState(prev =>
-        prev === 'pending' || prev === 'requested' ? 'opponent_disconnected' : prev
+        prev === 'idle' || prev === 'pending' || prev === 'requested' ? 'opponent_disconnected' : prev
       );
     });
 

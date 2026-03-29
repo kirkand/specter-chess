@@ -1036,22 +1036,6 @@ export function GameBoard({
           </>
         )}
 
-        {!view.gameOver && (
-          <button
-            onClick={onReset}
-            style={{
-              padding: '0.5rem 1.2rem',
-              borderRadius: '4px',
-              border: '2px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.06)',
-              color: '#aaa',
-              cursor: 'pointer',
-              fontSize: '1rem',
-            }}
-          >
-            New Game
-          </button>
-        )}
       </div>
 
       {/* Resign confirmation modal */}
