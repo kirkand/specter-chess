@@ -447,6 +447,31 @@ io.on('connection', socket => {
   socket.on('join_game', async (gameId: string) => {
     const session = sessions.get(gameId);
     if (!session) { socket.emit('join_failed', 'Game not found.'); return; }
+
+    // Reconnect: UUID matches an existing player whose socket slot is empty
+    const uuid = socket.data.uuid;
+    if (uuid) {
+      const reconnectColor = (['white', 'black'] as Color[]).find(
+        c => session.uuids[c] === uuid && !session.sockets[c]
+      );
+      if (reconnectColor) {
+        if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
+        session.sockets[reconnectColor] = socket.id;
+        socket.data.color = reconnectColor;
+        socket.data.gameId = gameId;
+        if (session.gameStartTime === null) {
+          socket.emit('game_created', gameId);
+          socket.emit('waiting_for_opponent');
+        } else {
+          socket.emit('game_start', reconnectColor);
+          pushViews(gameId);
+          if (!session.game.isGameOver) startTimer(gameId, session);
+        }
+        console.log(`[reconnect] ${socket.id} reconnected to game ${gameId} as ${reconnectColor}`);
+        return;
+      }
+    }
+
     if (session.sockets.white && session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
 
     const joinerElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;

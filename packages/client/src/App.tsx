@@ -43,6 +43,7 @@ export default function App() {
   const [opponentEmote, setOpponentEmote] = useState<ChatEmote | null>(null);
   const myEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opponentEmoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingGameIdRef = useRef<string | null>(null);
   const prevPlyCountRef = useRef<number>(-1);
   const prevCapturedByMeRef = useRef<number>(0);
   const prevCapturedByOpponentRef = useRef<number>(0);
@@ -71,6 +72,7 @@ export default function App() {
       if (playerNameRef.current.trim()) socket.emit('set_name', playerNameRef.current.trim());
       const inviteId = new URLSearchParams(window.location.search).get('game');
       if (inviteId) {
+        pendingGameIdRef.current = inviteId;
         socket.emit('join_game', inviteId);
       } else {
         setState(prev =>
@@ -91,17 +93,19 @@ export default function App() {
     });
 
     socket.on('game_created', (gameId: string) => {
+      window.history.pushState({}, '', '?game=' + gameId);
       setState({ phase: 'waiting', gameId });
     });
 
     socket.on('join_failed', (reason: string) => {
-      setState(prev =>
-        prev.phase === 'lobby'
-          ? { ...prev, joinError: reason }
-          : prev.phase === 'connecting'
-            ? { phase: 'lobby', openGames: [], joinError: reason }
-            : prev
-      );
+      setState(prev => {
+        if (prev.phase === 'lobby') return { ...prev, joinError: reason };
+        if (prev.phase === 'connecting') {
+          window.history.pushState({}, '', '/');
+          return { phase: 'lobby', openGames: [], joinError: reason };
+        }
+        return prev;
+      });
     });
 
     socket.on('waiting_for_opponent', () => {
@@ -118,11 +122,16 @@ export default function App() {
     });
 
     socket.on('host_abandoned', () => {
+      window.history.pushState({}, '', '/');
       setState({ phase: 'lobby', openGames: [], joinError: 'The host did not reconnect in time.' });
       socket.emit('get_open_games');
     });
 
     socket.on('game_start', (color: Color) => {
+      if (pendingGameIdRef.current) {
+        window.history.pushState({}, '', '?game=' + pendingGameIdRef.current);
+        pendingGameIdRef.current = null;
+      }
       setRematchState('idle');
       // Snapshot current ELO so we can compute the delta after the game
       preGameEloRef.current = myRating?.elo ?? null;
@@ -243,7 +252,7 @@ export default function App() {
         onRefresh={() => socket.emit('get_open_games')}
         onCreateGame={(timeControl, isPrivate) => socket.emit('create_game', { timeControl, private: isPrivate })}
         onCreateBotGame={(difficulty, timeControl) => socket.emit('create_bot_game', { difficulty, timeControl })}
-        onJoinGame={gameId => socket.emit('join_game', gameId)}
+        onJoinGame={gameId => { pendingGameIdRef.current = gameId; socket.emit('join_game', gameId); }}
       />
     );
   }
@@ -254,6 +263,7 @@ export default function App() {
       waitingForHost={state.waitingForHost}
       onReturnToLobby={() => {
         if (!state.waitingForHost) socket.emit('cancel_waiting_game');
+        window.history.pushState({}, '', '/');
         setState({ phase: 'lobby', openGames: [], joinError: null });
         socket.emit('get_open_games');
       }}
@@ -268,6 +278,7 @@ export default function App() {
         <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Your connection timed out.</p>
         <button
           onClick={() => {
+            window.history.pushState({}, '', '/');
             setState({ phase: 'lobby', openGames: [], joinError: null });
             socket.emit('get_open_games');
           }}
@@ -287,6 +298,7 @@ export default function App() {
         <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Opponent disconnected.</p>
         <button
           onClick={() => {
+            window.history.pushState({}, '', '/');
             setInCheck(false);
             setLastRejected(false);
             setSpyglassResult(null);
@@ -328,6 +340,7 @@ export default function App() {
         }}
         onReturnToLobby={() => {
           socket.emit('leave_game');
+          window.history.pushState({}, '', '/');
           setInCheck(false);
           setLastRejected(false);
           setSpyglassResult(null);
