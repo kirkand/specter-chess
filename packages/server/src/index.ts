@@ -80,7 +80,7 @@ interface GameSession {
 }
 
 const sessions = new Map<string, GameSession>();
-const openGames = new Map<string, { createdAt: number; timeControl: number; hostName: string; hostElo: number }>();
+const openGames = new Map<string, { createdAt: number; timeControl: number; hostName: string; hostElo: number; hostUuid: string | undefined }>();
 let onlineCount = 0;
 
 async function broadcastStats() {
@@ -261,9 +261,10 @@ function scheduleBotMove(gameId: string, session: GameSession) {
 
 // ─── View helpers ─────────────────────────────────────────────────────────────
 
-function buildOpenGamesList(): GameListing[] {
+function buildOpenGamesList(excludeUuid?: string): GameListing[] {
   const games: GameListing[] = [];
-  for (const [gameId, { createdAt, timeControl, hostName, hostElo }] of openGames.entries()) {
+  for (const [gameId, { createdAt, timeControl, hostName, hostElo, hostUuid }] of openGames.entries()) {
+    if (excludeUuid && hostUuid && hostUuid === excludeUuid) continue;
     games.push({ gameId, createdAt, timeControl, hostName, hostElo });
   }
   games.sort((a, b) => a.createdAt - b.createdAt);
@@ -271,7 +272,9 @@ function buildOpenGamesList(): GameListing[] {
 }
 
 function broadcastOpenGames() {
-  io.emit('open_games_update', buildOpenGamesList());
+  for (const [, sock] of io.sockets.sockets) {
+    sock.emit('open_games_update', buildOpenGamesList(sock.data.uuid));
+  }
 }
 
 function getColorForSocket(session: GameSession, socketId: string): Color | null {
@@ -370,7 +373,7 @@ io.on('connection', socket => {
   // ── Get open games ────────────────────────────────────────────────────────
 
   socket.on('get_open_games', () => {
-    socket.emit('open_games_update', buildOpenGamesList());
+    socket.emit('open_games_update', buildOpenGamesList(socket.data.uuid));
   });
 
   // ── Cancel waiting game ───────────────────────────────────────────────────
@@ -430,7 +433,7 @@ io.on('connection', socket => {
     };
     sessions.set(gameId, session);
     if (!isPrivate) {
-      openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo });
+      openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo, hostUuid: socket.data.uuid });
     }
 
     socket.data.color = hostColor;
@@ -473,6 +476,10 @@ io.on('connection', socket => {
     }
 
     if (session.sockets.white && session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
+
+    // Prevent a player from joining their own game as the opponent
+    const hostColor2: Color = session.sockets.white ? 'white' : 'black';
+    if (uuid && uuid === session.uuids[hostColor2]) { socket.emit('join_failed', 'You cannot join your own game.'); return; }
 
     const joinerElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
     if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
