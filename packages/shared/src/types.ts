@@ -140,6 +140,10 @@ export interface ServerToClientEvents {
   opponent_spyglass: (square: Square) => void;
   /** Waiting for opponent to connect */
   waiting_for_opponent: () => void;
+  /** Joined a game but host is disconnected — waiting up to 10s for them to return */
+  waiting_for_host: () => void;
+  /** Host did not reconnect in time — game cancelled */
+  host_abandoned: () => void;
   /** Game is starting */
   game_start: (color: Color) => void;
   /** Opponent disconnected */

@@ -28,7 +28,7 @@ const MY_UUID = getOrCreateUuid();
 type AppState =
   | { phase: 'connecting' }
   | { phase: 'lobby'; openGames: GameListing[]; joinError: string | null }
-  | { phase: 'waiting'; gameId: string }
+  | { phase: 'waiting'; gameId: string; waitingForHost?: boolean }
   | { phase: 'playing'; color: Color; view: PlayerView }
   | { phase: 'disconnected' }
   | { phase: 'timed_out' };
@@ -111,6 +111,15 @@ export default function App() {
           ? { phase: 'waiting', gameId: '' }
           : prev
       );
+    });
+
+    socket.on('waiting_for_host', () => {
+      setState({ phase: 'waiting', gameId: '', waitingForHost: true });
+    });
+
+    socket.on('host_abandoned', () => {
+      setState({ phase: 'lobby', openGames: [], joinError: 'The host did not reconnect in time.' });
+      socket.emit('get_open_games');
     });
 
     socket.on('game_start', (color: Color) => {
@@ -240,7 +249,15 @@ export default function App() {
   }
 
   if (state.phase === 'waiting') {
-    return <WaitingScreen gameId={state.gameId} onReturnToLobby={() => { socket.emit('cancel_waiting_game'); setState({ phase: 'lobby', openGames: [], joinError: null }); socket.emit('get_open_games'); }} />;
+    return <WaitingScreen
+      gameId={state.gameId}
+      waitingForHost={state.waitingForHost}
+      onReturnToLobby={() => {
+        if (!state.waitingForHost) socket.emit('cancel_waiting_game');
+        setState({ phase: 'lobby', openGames: [], joinError: null });
+        socket.emit('get_open_games');
+      }}
+    />;
   }
 
   if (state.phase === 'timed_out') {
@@ -923,9 +940,17 @@ function formatAge(createdAt: number): string {
 
 // ─── Status screen ───────────────────────────────────────────────────────────
 
-function WaitingScreen({ gameId, onReturnToLobby }: { gameId: string; onReturnToLobby: () => void }) {
+function WaitingScreen({ gameId, waitingForHost, onReturnToLobby }: { gameId: string; waitingForHost?: boolean; onReturnToLobby: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [countdown, setCountdown] = useState(10);
   const inviteUrl = gameId ? `${window.location.origin}${window.location.pathname}?game=${gameId}` : null;
+
+  useEffect(() => {
+    if (!waitingForHost) return;
+    setCountdown(25);
+    const interval = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(interval);
+  }, [waitingForHost]);
 
   function copyLink() {
     if (!inviteUrl) return;
@@ -939,7 +964,10 @@ function WaitingScreen({ gameId, onReturnToLobby }: { gameId: string; onReturnTo
     <div style={{ textAlign: 'center' }}>
       <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '0.5rem' }} />
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
-      <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Waiting for opponent…</p>
+      {waitingForHost
+        ? <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Waiting for host to reconnect… ({countdown}s)</p>
+        : <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Waiting for opponent…</p>
+      }
       {inviteUrl && (
         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
           <p style={{ fontSize: '0.85rem', opacity: 0.5, margin: 0 }}>Share this link with a friend:</p>

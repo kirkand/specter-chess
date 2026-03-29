@@ -334,7 +334,11 @@ io.on('connection', socket => {
     // Reconnect host to a waiting game they created before disconnecting
     for (const [gameId, session] of sessions) {
       const hostColor = ((['white', 'black'] as Color[]).find(c => session.uuids[c] === uuid));
-      if (hostColor && !session.sockets.white && !session.sockets.black) {
+      if (!hostColor) continue;
+      const joinerColor: Color = hostColor === 'white' ? 'black' : 'white';
+
+      // Case 1: No one connected yet — restore host to waiting state
+      if (!session.sockets.white && !session.sockets.black) {
         if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
         session.sockets[hostColor] = socket.id;
         socket.data.color = hostColor;
@@ -342,6 +346,22 @@ io.on('connection', socket => {
         console.log(`[reconnect] ${socket.id} rejoined waiting game ${gameId}`);
         socket.emit('game_created', gameId);
         socket.emit('waiting_for_opponent');
+        break;
+      }
+
+      // Case 2: Joiner already connected and waiting for host — start the game now
+      if (session.sockets[joinerColor] && !session.sockets[hostColor] && session.gameStartTime === null) {
+        if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
+        session.sockets[hostColor] = socket.id;
+        socket.data.color = hostColor;
+        socket.data.gameId = gameId;
+        session.gameStartTime = Date.now();
+        const joinerSocketId = session.sockets[joinerColor]!;
+        io.to(socket.id).emit('game_start', hostColor);
+        io.to(joinerSocketId).emit('game_start', joinerColor);
+        console.log(`[reconnect] host ${socket.id} rejoined game ${gameId}, starting with waiting joiner`);
+        startTimer(gameId, session);
+        pushViews(gameId);
         break;
       }
     }
@@ -444,9 +464,24 @@ io.on('connection', socket => {
     socket.data.gameId = gameId;
 
     openGames.delete(gameId);
-    session.gameStartTime = Date.now();
 
-    io.to(session.sockets[hostColor]!).emit('game_start', hostColor);
+    const hostSocketId = session.sockets[hostColor];
+    if (!hostSocketId) {
+      // Host is disconnected — wait 10s for them to reconnect before starting
+      socket.emit('waiting_for_host');
+      session.cleanupHandle = setTimeout(() => {
+        const joinerSocketId = session.sockets[joinerColor];
+        if (joinerSocketId) io.to(joinerSocketId).emit('host_abandoned');
+        sessions.delete(gameId);
+        broadcastOpenGames();
+      }, 25 * 1000);
+      console.log(`[join_game] ${socket.id} joined game ${gameId} as ${joinerColor} — host disconnected, waiting 10s`);
+      broadcastOpenGames();
+      return;
+    }
+
+    session.gameStartTime = Date.now();
+    io.to(hostSocketId).emit('game_start', hostColor);
     io.to(socket.id).emit('game_start', joinerColor);
 
     console.log(`[join_game] ${socket.id} joined game ${gameId} as ${joinerColor}`);
@@ -793,11 +828,22 @@ io.on('connection', socket => {
     const color = getColorForSocket(session, socket.id);
     if (!color) return;
 
-    // Waiting for opponent (public or private) — give host a grace period to reconnect
-    // rather than immediately destroying the session and invalidating the invite link.
-    if (!session.sockets.black) {
+    // Game hasn't started yet (waiting or waiting-for-host state)
+    if (session.gameStartTime === null) {
       if (session.timerHandle) { clearTimeout(session.timerHandle); session.timerHandle = null; }
       delete session.sockets[color];
+
+      const otherColor: Color = color === 'white' ? 'black' : 'white';
+      const otherSocketId = session.sockets[otherColor];
+      if (otherSocketId) {
+        // Joiner was waiting for host to reconnect, but now disconnecting — clean up
+        if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
+        sessions.delete(gameId);
+        return;
+      }
+
+      // No other player connected — give a grace period to reconnect (preserves invite link)
+      if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
       session.cleanupHandle = setTimeout(() => {
         openGames.delete(gameId);
         sessions.delete(gameId);
