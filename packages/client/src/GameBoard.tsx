@@ -550,28 +550,6 @@ export function GameBoard({
         </span>
       </h2>
 
-      {/* Status bar */}
-      <div
-        className={clockPulse && isTurn ? 'clock-pulse' : undefined}
-        style={{
-          padding: '0.4rem 1.2rem',
-          borderRadius: '4px',
-          background: inCheck
-            ? 'rgba(220, 50, 50, 0.8)'
-            : lastRejected
-            ? 'rgba(220, 150, 50, 0.8)'
-            : view.drawOfferPending
-            ? 'rgba(100, 200, 100, 0.25)'
-            : 'rgba(255,255,255,0.1)',
-          fontSize: '0.95rem',
-          fontWeight: 'bold',
-          minWidth: '220px',
-          textAlign: 'center',
-        }}
-      >
-        {lastRejected ? 'Invalid move — try again' : statusText}
-      </div>
-
       {/* Opponent row: name + ELO + captured pieces + clock */}
       <div style={{ width: boardSize, display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
         {opponentEmote && (
@@ -600,8 +578,36 @@ export function GameBoard({
         <ClockDisplay timeMs={displayedTime[opponentColor]} active={!view.isMyTurn && !view.gameOver} />
       </div>
 
-      {/* Board */}
-      <div style={{ position: 'relative' }}>
+      {/* Board + turn indicator wrapper — indicator is absolutely positioned so board never shifts */}
+      <div style={{ position: 'relative', paddingTop: '2.2rem', paddingBottom: '2.2rem' }}>
+        {/* Turn indicator */}
+        <div
+          className={clockPulse && isTurn ? 'clock-pulse' : undefined}
+          style={{
+            position: 'absolute',
+            ...(isTurn ? { bottom: 0 } : { top: 0 }),
+            left: 0,
+            width: boardSize,
+            boxSizing: 'border-box',
+            padding: '0.4rem 1.2rem',
+            borderRadius: '4px',
+            background: inCheck
+              ? 'rgba(220, 50, 50, 0.8)'
+              : lastRejected
+              ? 'rgba(220, 150, 50, 0.8)'
+              : view.drawOfferPending
+              ? 'rgba(100, 200, 100, 0.25)'
+              : 'rgba(255,255,255,0.1)',
+            fontSize: '0.95rem',
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}
+        >
+          {lastRejected ? 'Invalid move — try again' : statusText}
+        </div>
+
+        {/* Board */}
+        <div style={{ position: 'relative' }}>
         <Chessboard
           id="specter-chess-board"
           boardWidth={boardSize}
@@ -822,6 +828,7 @@ export function GameBoard({
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* My row: name + ELO + captured pieces + clock */}
