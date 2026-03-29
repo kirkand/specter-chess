@@ -330,10 +330,11 @@ io.on('connection', socket => {
 
     // Reconnect host to a waiting game they created before disconnecting
     for (const [gameId, session] of sessions) {
-      if (session.uuids.white === uuid && !session.sockets.white && !session.sockets.black) {
+      const hostColor = ((['white', 'black'] as Color[]).find(c => session.uuids[c] === uuid));
+      if (hostColor && !session.sockets.white && !session.sockets.black) {
         if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
-        session.sockets.white = socket.id;
-        socket.data.color = 'white';
+        session.sockets[hostColor] = socket.id;
+        socket.data.color = hostColor;
         socket.data.gameId = gameId;
         console.log(`[reconnect] ${socket.id} rejoined waiting game ${gameId}`);
         socket.emit('game_created', gameId);
@@ -379,15 +380,18 @@ io.on('connection', socket => {
     let gameId = '';
     for (let i = 0; i < 6; i++) gameId += chars[Math.floor(Math.random() * chars.length)];
 
-    const whiteElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
+    const hostElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
     if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
+
+    const hostColor: Color = Math.random() < 0.5 ? 'white' : 'black';
+    const joinerColor: Color = hostColor === 'white' ? 'black' : 'white';
 
     const session: GameSession = {
       game: new SpecterChessGame(),
-      sockets: { white: socket.id },
-      names: { white: socket.data.name ?? 'White', black: 'Black' },
-      uuids: { white: socket.data.uuid },
-      elos: { white: whiteElo, black: 1200 },
+      sockets: { [hostColor]: socket.id } as GameSession['sockets'],
+      names: { [hostColor]: socket.data.name ?? 'Player', [joinerColor]: 'Player' } as GameSession['names'],
+      uuids: { [hostColor]: socket.data.uuid } as GameSession['uuids'],
+      elos: { [hostColor]: hostElo, [joinerColor]: 1200 } as GameSession['elos'],
       eloRecorded: false,
       timeControl,
       timeRemaining: { white: timeControl * 1000, black: timeControl * 1000 },
@@ -402,10 +406,10 @@ io.on('connection', socket => {
     };
     sessions.set(gameId, session);
     if (!isPrivate) {
-      openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo: whiteElo });
+      openGames.set(gameId, { createdAt: Date.now(), timeControl, hostName: socket.data.name ?? 'Anonymous', hostElo });
     }
 
-    socket.data.color = 'white';
+    socket.data.color = hostColor;
     socket.data.gameId = gameId;
 
     console.log(`[create_game] ${socket.id} created game ${gameId} (${timeControl}s, ${isPrivate ? 'private' : 'public'})`);
@@ -419,26 +423,29 @@ io.on('connection', socket => {
   socket.on('join_game', async (gameId: string) => {
     const session = sessions.get(gameId);
     if (!session) { socket.emit('join_failed', 'Game not found.'); return; }
-    if (session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
+    if (session.sockets.white && session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
 
-    const blackElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
+    const joinerElo = socket.data.uuid ? (await db.getOrCreatePlayer(socket.data.uuid)).elo : 1200;
     if (socket.data.uuid && socket.data.name) await db.updatePlayerName(socket.data.uuid, socket.data.name);
 
+    const joinerColor: Color = session.sockets.white ? 'black' : 'white';
+    const hostColor: Color = joinerColor === 'white' ? 'black' : 'white';
+
     if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
-    session.sockets.black = socket.id;
-    session.names.black = socket.data.name ?? 'Black';
-    session.uuids.black = socket.data.uuid;
-    session.elos.black = blackElo;
-    socket.data.color = 'black';
+    session.sockets[joinerColor] = socket.id;
+    session.names[joinerColor] = socket.data.name ?? 'Player';
+    session.uuids[joinerColor] = socket.data.uuid;
+    session.elos[joinerColor] = joinerElo;
+    socket.data.color = joinerColor;
     socket.data.gameId = gameId;
 
     openGames.delete(gameId);
     session.gameStartTime = Date.now();
 
-    io.to(session.sockets.white!).emit('game_start', 'white');
-    io.to(socket.id).emit('game_start', 'black');
+    io.to(session.sockets[hostColor]!).emit('game_start', hostColor);
+    io.to(socket.id).emit('game_start', joinerColor);
 
-    console.log(`[join_game] ${socket.id} joined game ${gameId} as black`);
+    console.log(`[join_game] ${socket.id} joined game ${gameId} as ${joinerColor}`);
     startTimer(gameId, session);
     pushViews(gameId);
     broadcastOpenGames();
@@ -662,11 +669,33 @@ io.on('connection', socket => {
     if (session.uuids.white) session.elos.white = (await db.getOrCreatePlayer(session.uuids.white)).elo;
     if (session.uuids.black) session.elos.black = (await db.getOrCreatePlayer(session.uuids.black)).elo;
 
+    // Swap colors for rematch
+    const { white: ws, black: bs } = session.sockets;
+    const { white: wn, black: bn } = session.names;
+    const { white: wu, black: bu } = session.uuids;
+    const { white: we, black: be } = session.elos;
+    session.sockets = { white: bs, black: ws };
+    session.names   = { white: bn, black: wn };
+    session.uuids   = { white: bu, black: wu };
+    session.elos    = { white: be, black: we };
+
+    // Update socket.data.color for connected sockets
+    for (const [color, socketId] of Object.entries(session.sockets) as [Color, string | undefined][]) {
+      if (socketId) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.data.color = color;
+      }
+    }
+
     session.timeRemaining = { white: session.timeControl * 1000, black: session.timeControl * 1000 };
     session.turnStartTime = null;
     session.eloRecorded = false;
     session.drawOfferedBy = null;
     session.game = new SpecterChessGame();
+
+    // Notify clients of their new color before pushing updated views
+    if (session.sockets.white) io.to(session.sockets.white).emit('game_start', 'white');
+    if (session.sockets.black) io.to(session.sockets.black).emit('game_start', 'black');
 
     startTimer(gameId, session);
     pushViews(gameId);
