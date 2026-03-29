@@ -56,6 +56,7 @@ export default function App() {
   const [eloChange, setEloChange] = useState<number | null>(null);
   // Snapshot ELO at game start so delta is computed correctly after result
   const preGameEloRef = useRef<number | null>(null);
+  const [rematchState, setRematchState] = useState<'idle' | 'pending' | 'requested' | 'opponent_disconnected'>('idle');
 
   function handleNameChange(name: string) {
     setPlayerName(name);
@@ -113,6 +114,7 @@ export default function App() {
     });
 
     socket.on('game_start', (color: Color) => {
+      setRematchState('idle');
       // Snapshot current ELO so we can compute the delta after the game
       preGameEloRef.current = myRating?.elo ?? null;
       setEloChange(null);
@@ -134,6 +136,12 @@ export default function App() {
       setInCheck(view.inCheck);
       if (view.isMyTurn) setLastRejected(false);
 
+      if (view.gameOver) {
+        if (view.myRematchPending) setRematchState('pending');
+        else if (view.rematchRequestedByOpponent) setRematchState('requested');
+        else setRematchState(prev => prev === 'opponent_disconnected' ? prev : 'idle');
+      }
+
       const prevPly = prevPlyCountRef.current;
       const moved = prevPly >= 0 && view.plyCount > prevPly;
       const captured =
@@ -141,7 +149,6 @@ export default function App() {
         view.capturedByOpponent.length > prevCapturedByOpponentRef.current;
 
       if (moved) playSound(captured ? 'pieceCapture' : 'pieceMove');
-
 
       prevPlyCountRef.current = view.plyCount;
       prevCapturedByMeRef.current = view.capturedByMe.length;
@@ -170,7 +177,13 @@ export default function App() {
     });
 
     socket.on('opponent_disconnected', () => {
-      setState({ phase: 'disconnected' });
+      setState(prev => {
+        if (prev.phase === 'playing' && (prev as any).view?.gameOver) return prev;
+        return { phase: 'disconnected' };
+      });
+      setRematchState(prev =>
+        prev === 'pending' || prev === 'requested' ? 'opponent_disconnected' : prev
+      );
     });
 
     socket.on('disconnect', () => {
@@ -288,6 +301,7 @@ export default function App() {
         onOfferDraw={() => socket.emit('offer_draw')}
         onAcceptDraw={() => socket.emit('accept_draw')}
         onDeclineDraw={() => socket.emit('decline_draw')}
+        rematchState={rematchState}
         onReset={() => {
           socket.emit('reset_game');
           setInCheck(false);
@@ -296,10 +310,12 @@ export default function App() {
           setEloChange(null);
         }}
         onReturnToLobby={() => {
+          socket.emit('leave_game');
           setInCheck(false);
           setLastRejected(false);
           setSpyglassResult(null);
           setEloChange(null);
+          setRematchState('idle');
           setState({ phase: 'lobby', openGames: [], joinError: null });
           socket.emit('get_open_games');
         }}

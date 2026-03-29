@@ -70,6 +70,10 @@ export interface PlayerView {
   myDrawOfferPending: boolean;
   /** Whether this game is against a bot */
   isVsBot: boolean;
+  /** Opponent has requested a rematch that I haven't yet accepted or declined */
+  rematchRequestedByOpponent: boolean;
+  /** I requested a rematch and am waiting for the opponent's response */
+  myRematchPending: boolean;
   /**
    * Set when an opponent piece just captured one of our pieces.
    * The square the capturing piece moved FROM — used to animate the two-step
@@ -79,7 +83,7 @@ export interface PlayerView {
 }
 
 /** Subset returned by SpecterChessGame.getPlayerView() — server augments the rest before sending. */
-export type CorePlayerView = Omit<PlayerView, 'timeRemainingMs' | 'playerName' | 'opponentName' | 'playerElo' | 'opponentElo' | 'drawOfferPending' | 'myDrawOfferPending' | 'isVsBot'>;
+export type CorePlayerView = Omit<PlayerView, 'timeRemainingMs' | 'playerName' | 'opponentName' | 'playerElo' | 'opponentElo' | 'drawOfferPending' | 'myDrawOfferPending' | 'isVsBot' | 'rematchRequestedByOpponent' | 'myRematchPending'>;
 
 // ─── Bot ─────────────────────────────────────────────────────────────────────
 
@@ -170,6 +174,7 @@ export interface ClientToServerEvents {
   offer_draw: () => void;
   accept_draw: () => void;
   decline_draw: () => void;
+  leave_game: () => void;
   create_bot_game: (options: { difficulty: BotDifficulty; timeControl: number }) => void;
   chat_emote: (text: ChatEmote) => void;
 }

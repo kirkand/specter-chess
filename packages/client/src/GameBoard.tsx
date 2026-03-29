@@ -160,6 +160,7 @@ interface GameBoardProps {
   onOfferDraw: () => void;
   onAcceptDraw: () => void;
   onDeclineDraw: () => void;
+  rematchState: 'idle' | 'pending' | 'requested' | 'opponent_disconnected';
   onReset: () => void;
   onReturnToLobby: () => void;
   myEmote: ChatEmote | null;
@@ -181,6 +182,7 @@ export function GameBoard({
   onOfferDraw,
   onAcceptDraw,
   onDeclineDraw,
+  rematchState,
   onReset,
   onReturnToLobby,
   myEmote,
@@ -1127,22 +1129,66 @@ export function GameBoard({
           }}>
             {outcomeText}
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              onClick={onReset}
-              style={{
-                padding: '0.6rem 1.5rem',
-                borderRadius: '6px',
-                border: '2px solid rgba(100,160,255,0.5)',
-                background: '#1a1a2e',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '1.05rem',
-                fontWeight: 'bold',
-              }}
-            >
-              Rematch?
-            </button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            {rematchState === 'idle' && (
+              <button
+                onClick={onReset}
+                style={{
+                  padding: '0.6rem 1.5rem',
+                  borderRadius: '6px',
+                  border: '2px solid rgba(100,160,255,0.5)',
+                  background: '#1a1a2e',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '1.05rem',
+                  fontWeight: 'bold',
+                }}
+              >
+                Rematch?
+              </button>
+            )}
+            {rematchState === 'pending' && (
+              <button
+                disabled
+                style={{
+                  padding: '0.6rem 1.5rem',
+                  borderRadius: '6px',
+                  border: '2px solid rgba(100,160,255,0.2)',
+                  background: '#1a1a2e',
+                  color: '#aaa',
+                  cursor: 'default',
+                  fontSize: '1.05rem',
+                  fontWeight: 'bold',
+                  opacity: 0.6,
+                }}
+              >
+                Waiting for opponent...
+              </button>
+            )}
+            {rematchState === 'requested' && (
+              <>
+                <button
+                  onClick={onReset}
+                  style={{
+                    padding: '0.6rem 1.5rem',
+                    borderRadius: '6px',
+                    border: '2px solid rgba(100,160,255,0.5)',
+                    background: '#1a1a2e',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '1.05rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Accept Rematch
+                </button>
+              </>
+            )}
+            {rematchState === 'opponent_disconnected' && (
+              <span style={{ color: '#aaa', fontSize: '0.95rem' }}>
+                Player disconnected
+              </span>
+            )}
             <button
               onClick={onReturnToLobby}
               style={{

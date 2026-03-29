@@ -72,6 +72,7 @@ interface GameSession {
   timerHandle: ReturnType<typeof setTimeout> | null;
   cleanupHandle: ReturnType<typeof setTimeout> | null;
   drawOfferedBy: Color | null;
+  rematchRequestedBy: Color | null;
   botDifficulty: BotDifficulty | null;
   botMoveHandle: ReturnType<typeof setTimeout> | null;
   gameStartTime: number | null;
@@ -298,6 +299,8 @@ function pushViews(gameId: string) {
       drawOfferPending: session.drawOfferedBy === opponent,
       myDrawOfferPending: session.drawOfferedBy === color,
       isVsBot: session.botDifficulty !== null,
+      rematchRequestedByOpponent: session.rematchRequestedBy === opponent,
+      myRematchPending: session.rematchRequestedBy === color,
     });
   }
 }
@@ -399,6 +402,7 @@ io.on('connection', socket => {
       timerHandle: null,
       cleanupHandle: null,
       drawOfferedBy: null,
+      rematchRequestedBy: null,
       botDifficulty: null,
       botMoveHandle: null,
       gameStartTime: null,
@@ -478,6 +482,7 @@ io.on('connection', socket => {
       timerHandle: null,
       cleanupHandle: null,
       drawOfferedBy: null,
+      rematchRequestedBy: null,
       botDifficulty: difficulty,
       botMoveHandle: null,
       gameStartTime: null,
@@ -566,6 +571,8 @@ io.on('connection', socket => {
       drawOfferPending: session.drawOfferedBy === opponent,
       myDrawOfferPending: session.drawOfferedBy === color,
       isVsBot: session.botDifficulty !== null,
+      rematchRequestedByOpponent: session.rematchRequestedBy === opponent,
+      myRematchPending: session.rematchRequestedBy === color,
     });
   });
 
@@ -661,7 +668,61 @@ io.on('connection', socket => {
     if (!gameId) return;
     const session = sessions.get(gameId);
     if (!session) return;
+    const color = getColorForSocket(session, socket.id);
+    if (!color) return;
 
+    // Bot games: immediate reset, no consent needed
+    if (session.botDifficulty !== null) {
+      if (session.timerHandle) { clearTimeout(session.timerHandle); session.timerHandle = null; }
+      if (session.botMoveHandle) { clearTimeout(session.botMoveHandle); session.botMoveHandle = null; }
+
+      if (session.uuids.white) session.elos.white = (await db.getOrCreatePlayer(session.uuids.white)).elo;
+
+      const { white: ws, black: bs } = session.sockets;
+      const { white: wn, black: bn } = session.names;
+      const { white: wu, black: bu } = session.uuids;
+      const { white: we, black: be } = session.elos;
+      session.sockets = { white: bs, black: ws };
+      session.names   = { white: bn, black: wn };
+      session.uuids   = { white: bu, black: wu };
+      session.elos    = { white: be, black: we };
+
+      for (const [c, socketId] of Object.entries(session.sockets) as [Color, string | undefined][]) {
+        if (socketId) {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock) sock.data.color = c;
+        }
+      }
+
+      session.timeRemaining = { white: session.timeControl * 1000, black: session.timeControl * 1000 };
+      session.turnStartTime = null;
+      session.eloRecorded = false;
+      session.drawOfferedBy = null;
+      session.rematchRequestedBy = null;
+      session.game = new SpecterChessGame();
+
+      if (session.sockets.white) io.to(session.sockets.white).emit('game_start', 'white');
+      if (session.sockets.black) io.to(session.sockets.black).emit('game_start', 'black');
+
+      startTimer(gameId, session);
+      pushViews(gameId);
+      return;
+    }
+
+    // PvP: require both players to agree
+    if (!session.game.isGameOver) return;
+
+    const opponent: Color = color === 'white' ? 'black' : 'white';
+
+    if (session.rematchRequestedBy === null) {
+      // First player to request
+      session.rematchRequestedBy = color;
+      pushViews(gameId);
+      return;
+    }
+    if (session.rematchRequestedBy === color) return; // same player clicked again, no-op
+
+    // Both players agreed — start rematch
     if (session.timerHandle) { clearTimeout(session.timerHandle); session.timerHandle = null; }
     if (session.botMoveHandle) { clearTimeout(session.botMoveHandle); session.botMoveHandle = null; }
 
@@ -680,10 +741,10 @@ io.on('connection', socket => {
     session.elos    = { white: be, black: we };
 
     // Update socket.data.color for connected sockets
-    for (const [color, socketId] of Object.entries(session.sockets) as [Color, string | undefined][]) {
+    for (const [c, socketId] of Object.entries(session.sockets) as [Color, string | undefined][]) {
       if (socketId) {
         const sock = io.sockets.sockets.get(socketId);
-        if (sock) sock.data.color = color;
+        if (sock) sock.data.color = c;
       }
     }
 
@@ -691,6 +752,7 @@ io.on('connection', socket => {
     session.turnStartTime = null;
     session.eloRecorded = false;
     session.drawOfferedBy = null;
+    session.rematchRequestedBy = null;
     session.game = new SpecterChessGame();
 
     // Notify clients of their new color before pushing updated views
@@ -699,6 +761,22 @@ io.on('connection', socket => {
 
     startTimer(gameId, session);
     pushViews(gameId);
+  });
+
+  socket.on('leave_game', () => {
+    const gameId = socket.data.gameId;
+    if (!gameId) return;
+    const session = sessions.get(gameId);
+    if (!session) return;
+    const color = getColorForSocket(session, socket.id);
+    if (!color) return;
+    const opponent: Color = color === 'white' ? 'black' : 'white';
+    // If the opponent is waiting for my response to their rematch request, notify them
+    if (session.rematchRequestedBy === opponent) {
+      const opponentSocketId = session.sockets[opponent];
+      if (opponentSocketId) io.to(opponentSocketId).emit('opponent_disconnected');
+    }
+    session.rematchRequestedBy = null;
   });
 
   // ── Disconnect ────────────────────────────────────────────────────────────
