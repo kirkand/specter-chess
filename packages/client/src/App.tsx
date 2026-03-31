@@ -37,7 +37,7 @@ export default function App() {
   const [state, setState] = useState<AppState>({ phase: 'connecting' });
   const [spyglassResult, setSpyglassResult] = useState<SpyglassResult | null>(null);
   const [opponentSpyglassSquare, setOpponentSpyglassSquare] = useState<string | null>(null);
-  const [lastRejected, setLastRejected] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [inCheck, setInCheck] = useState(false);
   const [myEmote, setMyEmote] = useState<ChatEmote | null>(null);
   const [opponentEmote, setOpponentEmote] = useState<ChatEmote | null>(null);
@@ -152,7 +152,7 @@ export default function App() {
         return { ...prev, view };
       });
       setInCheck(view.inCheck);
-      if (view.isMyTurn) setLastRejected(false);
+      if (view.isMyTurn) setRejectionReason(null);
 
       if (view.gameOver) {
         if (view.myRematchPending) setRematchState('pending');
@@ -184,9 +184,9 @@ export default function App() {
       setTimeout(() => setOpponentSpyglassSquare(null), 3000);
     });
 
-    socket.on('move_rejected', () => {
-      setLastRejected(true);
-      setTimeout(() => setLastRejected(false), 1500);
+    socket.on('move_rejected', (reason) => {
+      setRejectionReason(reason);
+      setTimeout(() => setRejectionReason(null), 1500);
     });
 
     socket.on('check_notification', () => {
@@ -300,7 +300,7 @@ export default function App() {
           onClick={() => {
             window.history.pushState({}, '', '/');
             setInCheck(false);
-            setLastRejected(false);
+            setRejectionReason(null);
             setSpyglassResult(null);
             setEloChange(null);
             setState({ phase: 'lobby', openGames: [], joinError: null });
@@ -321,7 +321,7 @@ export default function App() {
         playerColor={state.color}
         spyglassResult={spyglassResult}
         opponentSpyglassSquare={opponentSpyglassSquare}
-        lastRejected={lastRejected}
+        rejectionReason={rejectionReason}
         inCheck={inCheck}
         eloChange={eloChange}
         onMove={move => socket.emit('move_attempt', move)}
@@ -334,7 +334,7 @@ export default function App() {
         onReset={() => {
           socket.emit('reset_game');
           setInCheck(false);
-          setLastRejected(false);
+          setRejectionReason(null);
           setSpyglassResult(null);
           setEloChange(null);
         }}
@@ -342,7 +342,7 @@ export default function App() {
           socket.emit('leave_game');
           window.history.pushState({}, '', '/');
           setInCheck(false);
-          setLastRejected(false);
+          setRejectionReason(null);
           setSpyglassResult(null);
           setEloChange(null);
           setRematchState('idle');

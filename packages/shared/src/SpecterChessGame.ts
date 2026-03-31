@@ -8,6 +8,7 @@ import type {
   CorePlayerView,
   SpyglassResult,
   Square,
+  MoveRejectionReason,
 } from './types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -264,12 +265,80 @@ export class SpecterChessGame {
   }
 
   /**
-   * Attempt a move for the given player.
-   * Returns true if the move was valid and executed, false otherwise.
+   * Determine why a move was rejected, given the true board state.
+   * Called only after chess.js has already rejected the move.
    */
-  attemptMove(color: Color, move: Move): boolean {
-    if (this.currentTurn !== color) return false;
-    if (this.isGameOver) return false;
+  private getMoveRejectionReason(move: Move): MoveRejectionReason {
+    const piece = this.chess.get(move.from as ChessSquare);
+    if (!piece) return 'path_blocked';
+
+    const fromF = move.from.charCodeAt(0) - 97;
+    const fromR = parseInt(move.from[1]) - 1;
+    const toF = move.to.charCodeAt(0) - 97;
+    const toR = parseInt(move.to[1]) - 1;
+    const dF = toF - fromF;
+    const dR = toR - fromR;
+
+    if (piece.type === 'p') {
+      if (Math.abs(dF) === 1) {
+        // Diagonal pawn move — check if there's a capturable piece or en passant
+        const legalMoves = this.chess.moves({ square: move.from as ChessSquare, verbose: true });
+        const destPiece = this.chess.get(move.to as ChessSquare);
+        const isEnPassant = legalMoves.some(m => m.to === move.to && m.flags.includes('e'));
+        if (!destPiece && !isEnPassant) return 'no_piece_to_capture';
+        return 'would_put_in_check';
+      }
+      // Forward pawn move: must be straight ahead, 1 square (or 2 from start rank)
+      const dir = piece.color === 'w' ? 1 : -1;
+      const startRank = piece.color === 'w' ? 1 : 6;
+      const isPawnForward = dF === 0 && (dR === dir || (dR === 2 * dir && fromR === startRank));
+      if (!isPawnForward) return 'invalid_piece_move';
+      return 'path_blocked';
+    }
+
+    // Geometric validity for non-pawn pieces
+    const isGeometricValid = (() => {
+      switch (piece.type) {
+        case 'r': return dF === 0 || dR === 0;
+        case 'b': return Math.abs(dF) === Math.abs(dR);
+        case 'q': return dF === 0 || dR === 0 || Math.abs(dF) === Math.abs(dR);
+        case 'n': return (Math.abs(dF) === 1 && Math.abs(dR) === 2) || (Math.abs(dF) === 2 && Math.abs(dR) === 1);
+        case 'k': return (Math.abs(dF) <= 1 && Math.abs(dR) <= 1) || (dR === 0 && Math.abs(dF) === 2); // castling
+        default: return false;
+      }
+    })();
+
+    if (!isGeometricValid) return 'invalid_piece_move';
+
+    // Own piece at destination
+    const destPiece = this.chess.get(move.to as ChessSquare);
+    if (destPiece && destPiece.color === piece.color) return 'path_blocked';
+
+    // Check for blocking pieces along the path (sliding pieces only)
+    if (piece.type === 'r' || piece.type === 'b' || piece.type === 'q') {
+      const stepF = dF === 0 ? 0 : Math.sign(dF);
+      const stepR = dR === 0 ? 0 : Math.sign(dR);
+      let curF = fromF + stepF;
+      let curR = fromR + stepR;
+      while (curF !== toF || curR !== toR) {
+        const sq = String.fromCharCode(97 + curF) + (curR + 1);
+        if (this.chess.get(sq as ChessSquare)) return 'path_blocked';
+        curF += stepF;
+        curR += stepR;
+      }
+    }
+
+    // Not blocked by pieces — illegal due to check constraints
+    return 'would_put_in_check';
+  }
+
+  /**
+   * Attempt a move for the given player.
+   * Returns null if the move was valid and executed, or a MoveRejectionReason otherwise.
+   */
+  attemptMove(color: Color, move: Move): MoveRejectionReason | null {
+    if (this.currentTurn !== color) return 'path_blocked';
+    if (this.isGameOver) return 'path_blocked';
 
     // Clear any capture reveal that was pending for this player (they've now seen it).
     delete this.captureRevealFrom[color];
@@ -277,6 +346,8 @@ export class SpecterChessGame {
     // Snapshot the moving player's current positions BEFORE they move.
     // This becomes what the opponent will see after this turn.
     const preMovePieces = getPiecesForColor(this.chess, color);
+
+    const reason = this.getMoveRejectionReason(move);
 
     const promotion = move.promotion ? PIECE_SYMBOL_MAP[move.promotion] : undefined;
     let result;
@@ -287,9 +358,9 @@ export class SpecterChessGame {
         promotion,
       });
     } catch {
-      return false;
+      return reason;
     }
-    if (!result) return false;
+    if (!result) return reason;
 
     // Clear this player's capture-block now that they've completed their move
     this.spyglassDisabled[color] = false;
@@ -381,7 +452,7 @@ export class SpecterChessGame {
     this.spyglassUsed[opponent] = false;
     this.currentTurn = opponent;
 
-    return true;
+    return null;
   }
 
   /**

@@ -578,9 +578,9 @@ io.on('connection', socket => {
 
     if (session.timerHandle) { clearTimeout(session.timerHandle); session.timerHandle = null; }
 
-    const valid = session.game.attemptMove(color, move);
-    if (!valid) {
-      socket.emit('move_rejected');
+    const rejection = session.game.attemptMove(color, move);
+    if (rejection !== null) {
+      socket.emit('move_rejected', rejection);
       if (!session.game.isGameOver) startTimer(gameId, session);
       return;
     }

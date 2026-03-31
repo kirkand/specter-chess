@@ -6,6 +6,13 @@ import { isSoundEnabled, setSoundEnabled } from './sounds';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
+const REJECTION_MESSAGES: Record<string, string> = {
+  path_blocked: 'A piece is blocking that path.',
+  would_put_in_check: 'That move would put you in check.',
+  no_piece_to_capture: 'No piece to capture there.',
+  invalid_piece_move: 'Not a valid move for this piece.',
+};
+
 const MAX_BOARD_SIZE = 520;
 const ANIM_DURATION = 650;
 const TRAIL_DURATION = 350; // flame streak lives slightly longer than the 200 ms slide
@@ -151,7 +158,7 @@ interface GameBoardProps {
   playerColor: Color;
   spyglassResult: SpyglassResult | null;
   opponentSpyglassSquare: string | null;
-  lastRejected: boolean;
+  rejectionReason: string | null;
   inCheck: boolean;
   eloChange: number | null;
   onMove: (move: Move) => void;
@@ -173,7 +180,7 @@ export function GameBoard({
   playerColor,
   spyglassResult,
   opponentSpyglassSquare,
-  lastRejected,
+  rejectionReason,
   inCheck,
   eloChange,
   onMove,
@@ -593,7 +600,7 @@ export function GameBoard({
             borderRadius: '4px',
             background: inCheck
               ? 'rgba(220, 50, 50, 0.8)'
-              : lastRejected
+              : rejectionReason !== null
               ? 'rgba(220, 150, 50, 0.8)'
               : view.drawOfferPending
               ? 'rgba(100, 200, 100, 0.25)'
@@ -603,7 +610,7 @@ export function GameBoard({
             textAlign: 'center',
           }}
         >
-          {lastRejected ? 'Invalid move — try again' : statusText}
+          {rejectionReason !== null ? REJECTION_MESSAGES[rejectionReason] ?? 'Invalid move — try again' : statusText}
         </div>
 
         {/* Board */}

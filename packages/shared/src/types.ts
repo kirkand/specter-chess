@@ -85,6 +85,10 @@ export interface PlayerView {
 /** Subset returned by SpecterChessGame.getPlayerView() — server augments the rest before sending. */
 export type CorePlayerView = Omit<PlayerView, 'timeRemainingMs' | 'playerName' | 'opponentName' | 'playerElo' | 'opponentElo' | 'drawOfferPending' | 'myDrawOfferPending' | 'isVsBot' | 'rematchRequestedByOpponent' | 'myRematchPending'>;
 
+// ─── Move rejection ──────────────────────────────────────────────────────────
+
+export type MoveRejectionReason = 'path_blocked' | 'would_put_in_check' | 'no_piece_to_capture' | 'invalid_piece_move';
+
 // ─── Bot ─────────────────────────────────────────────────────────────────────
 
 export type BotDifficulty = 'easy' | 'medium' | 'hard';
@@ -131,7 +135,7 @@ export interface ServerToClientEvents {
   /** Player is in check */
   check_notification: () => void;
   /** Server rejected a move attempt (invalid against true board state) */
-  move_rejected: () => void;
+  move_rejected: (reason: MoveRejectionReason) => void;
   /** Server rejected a spyglass attempt (already used this turn) */
   spyglass_rejected: (reason: string) => void;
   /** Spyglass result */
