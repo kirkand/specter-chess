@@ -235,12 +235,11 @@ function scheduleBotMove(gameId: string, session: GameSession) {
       stopTimer(session, botColor);
       session.drawOfferedBy = null;
 
-      let valid = false;
+      let moved = false;
       for (const move of candidates) {
-        valid = session.game.attemptMove(botColor, move);
-        if (valid) break;
+        if (session.game.attemptMove(botColor, move) === null) { moved = true; break; }
       }
-      if (!valid) return;
+      if (!moved) return;
 
       if (session.game.isGameOver) {
         void recordGameResult(gameId, session);
