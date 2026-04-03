@@ -589,7 +589,6 @@ export function GameBoard({
       <div style={{ position: 'relative', paddingTop: '2.2rem', paddingBottom: '2.2rem' }}>
         {/* Turn indicator */}
         <div
-          className={clockPulse && isTurn ? 'clock-pulse' : undefined}
           style={{
             position: 'absolute',
             ...(isTurn ? { bottom: 0 } : { top: 0 }),
@@ -610,7 +609,9 @@ export function GameBoard({
             textAlign: 'center',
           }}
         >
-          {rejectionReason !== null ? REJECTION_MESSAGES[rejectionReason] ?? 'Invalid move — try again' : statusText}
+          <span className={clockPulse && isTurn ? 'clock-pulse' : undefined} style={{ display: 'inline-block' }}>
+            {rejectionReason !== null ? REJECTION_MESSAGES[rejectionReason] ?? 'Invalid move — try again' : statusText}
+          </span>
         </div>
 
         {/* Board */}
