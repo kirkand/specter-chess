@@ -236,7 +236,7 @@ export default function App() {
   }, []);
 
   if (state.phase === 'connecting') {
-    return <StatusScreen message="Connecting to server…" />;
+    return <ConnectingScreen />;
   }
 
   if (state.phase === 'lobby') {
@@ -1031,6 +1031,36 @@ function StatusScreen({ message, hint }: { message: string; hint?: string }) {
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
       <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{message}</p>
       {hint && <p style={{ marginTop: '0.5rem', opacity: 0.5, fontSize: '0.9rem' }}>{hint}</p>}
+    </div>
+  );
+}
+
+function ConnectingScreen() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const duration = 50000;
+    const interval = 100;
+    const steps = duration / interval;
+    let step = 0;
+
+    const timer = setInterval(() => {
+      step++;
+      setProgress(Math.min((step / steps) * 100, 100));
+      if (step >= steps) clearInterval(timer);
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '0.5rem' }} />
+      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Specter Chess</h1>
+      <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Connecting to server…</p>
+      <div style={{ margin: '1rem auto 0', width: '200px', height: '6px', background: 'rgba(255,255,255,0.15)', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${progress}%`, background: 'rgba(255,255,255,0.7)', borderRadius: '3px', transition: 'width 0.1s linear' }} />
+      </div>
     </div>
   );
 }
