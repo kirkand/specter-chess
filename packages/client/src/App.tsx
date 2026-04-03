@@ -135,8 +135,10 @@ export default function App() {
       socket.emit('get_open_games');
     });
 
-    socket.on('game_start', (color: Color) => {
-      if (pendingGameIdRef.current) {
+    socket.on('game_start', (color: Color, gameId?: string) => {
+      if (gameId) {
+        window.history.pushState({}, '', '?game=' + gameId);
+      } else if (pendingGameIdRef.current) {
         window.history.pushState({}, '', '?game=' + pendingGameIdRef.current);
         pendingGameIdRef.current = null;
       }

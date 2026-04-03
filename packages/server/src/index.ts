@@ -366,6 +366,21 @@ io.on('connection', socket => {
         pushViews(gameId);
         break;
       }
+
+      // Case 3: Active mid-game — reconnect the player
+      if (session.gameStartTime !== null && !session.game.isGameOver && !session.sockets[hostColor]) {
+        if (session.cleanupHandle) { clearTimeout(session.cleanupHandle); session.cleanupHandle = null; }
+        session.sockets[hostColor] = socket.id;
+        socket.data.color = hostColor;
+        socket.data.gameId = gameId;
+        socket.emit('game_start', hostColor, gameId);
+        pushViews(gameId);
+        if (!session.game.isGameOver) startTimer(gameId, session);
+        const otherSocketId = session.sockets[joinerColor];
+        if (otherSocketId) io.to(otherSocketId).emit('opponent_reconnected');
+        console.log(`[reconnect] ${socket.id} rejoined active game ${gameId} as ${hostColor} via register`);
+        break;
+      }
     }
   });
 

@@ -148,8 +148,8 @@ export interface ServerToClientEvents {
   waiting_for_host: () => void;
   /** Host did not reconnect in time — game cancelled */
   host_abandoned: () => void;
-  /** Game is starting */
-  game_start: (color: Color) => void;
+  /** Game is starting. gameId is included when reconnecting so the client can restore the URL. */
+  game_start: (color: Color, gameId?: string) => void;
   /** Opponent disconnected but is within the reconnect grace period */
   opponent_reconnecting: () => void;
   /** Opponent reconnected successfully within the grace period */
