@@ -58,6 +58,14 @@ export default function App() {
   // Snapshot ELO at game start so delta is computed correctly after result
   const preGameEloRef = useRef<number | null>(null);
   const [rematchState, setRematchState] = useState<'idle' | 'pending' | 'requested' | 'opponent_disconnected'>('idle');
+  const [opponentReconnecting, setOpponentReconnecting] = useState(false);
+  const [reconnectCountdown, setReconnectCountdown] = useState(0);
+
+  useEffect(() => {
+    if (!opponentReconnecting) return;
+    const interval = setInterval(() => setReconnectCountdown((c: number) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(interval);
+  }, [opponentReconnecting]);
 
   function handleNameChange(name: string) {
     setPlayerName(name);
@@ -194,7 +202,19 @@ export default function App() {
       playSound('check');
     });
 
+    socket.on('opponent_reconnecting', () => {
+      setOpponentReconnecting(true);
+      setReconnectCountdown(40);
+    });
+
+    socket.on('opponent_reconnected', () => {
+      setOpponentReconnecting(false);
+      setReconnectCountdown(0);
+    });
+
     socket.on('opponent_disconnected', () => {
+      setOpponentReconnecting(false);
+      setReconnectCountdown(0);
       setState(prev => {
         if (prev.phase === 'playing' && (prev as any).view?.gameOver) return prev;
         return { phase: 'disconnected' };
@@ -316,7 +336,20 @@ export default function App() {
 
   if (state.phase === 'playing' && state.view) {
     return (
-      <GameBoard
+      <div style={{ position: 'relative' }}>
+        {opponentReconnecting && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            zIndex: 100, gap: '0.5rem',
+          }}>
+            <p style={{ fontSize: '1.2rem', margin: 0 }}>Opponent disconnected</p>
+            <p style={{ fontSize: '1rem', opacity: 0.7, margin: 0 }}>
+              Waiting for reconnect… ({reconnectCountdown}s)
+            </p>
+          </div>
+        )}
+        <GameBoard
         view={state.view}
         playerColor={state.color}
         spyglassResult={spyglassResult}
@@ -358,6 +391,7 @@ export default function App() {
           socket.emit('chat_emote', text);
         }}
       />
+      </div>
     );
   }
 

@@ -150,7 +150,11 @@ export interface ServerToClientEvents {
   host_abandoned: () => void;
   /** Game is starting */
   game_start: (color: Color) => void;
-  /** Opponent disconnected */
+  /** Opponent disconnected but is within the reconnect grace period */
+  opponent_reconnecting: () => void;
+  /** Opponent reconnected successfully within the grace period */
+  opponent_reconnected: () => void;
+  /** Opponent disconnected and the grace period has expired (or game not yet started) */
   opponent_disconnected: () => void;
   /** A new game was created and the creator is waiting */
   game_created: (gameId: string) => void;

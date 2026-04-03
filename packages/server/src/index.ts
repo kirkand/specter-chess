@@ -468,6 +468,10 @@ io.on('connection', socket => {
           socket.emit('game_start', reconnectColor);
           pushViews(gameId);
           if (!session.game.isGameOver) startTimer(gameId, session);
+          // Notify the opponent that the player has reconnected
+          const otherColor: Color = reconnectColor === 'white' ? 'black' : 'white';
+          const otherSocketId = session.sockets[otherColor];
+          if (otherSocketId) io.to(otherSocketId).emit('opponent_reconnected');
         }
         console.log(`[reconnect] ${socket.id} reconnected to game ${gameId} as ${reconnectColor}`);
         return;
@@ -894,10 +898,24 @@ io.on('connection', socket => {
 
     const opponent: Color = color === 'white' ? 'black' : 'white';
     const opponentSocketId = session.sockets[opponent];
-    if (opponentSocketId) io.to(opponentSocketId).emit('opponent_disconnected');
 
     delete session.sockets[color];
-    if (!session.sockets.white && !session.sockets.black) sessions.delete(gameId);
+
+    if (opponentSocketId) {
+      // Give the disconnected player 40 seconds to reconnect before ending the game
+      io.to(opponentSocketId).emit('opponent_reconnecting');
+      if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
+      session.cleanupHandle = setTimeout(() => {
+        // Disconnected player forfeits — count as a loss for them
+        session.game.declareTimeout(color);
+        recordGameResult(gameId, session);
+        pushViews(gameId);
+        io.to(opponentSocketId).emit('opponent_disconnected');
+        sessions.delete(gameId);
+      }, 40 * 1000);
+    } else {
+      sessions.delete(gameId);
+    }
   });
 });
 
