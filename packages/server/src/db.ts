@@ -44,6 +44,14 @@ export async function updatePlayerName(uuid: string, name: string): Promise<void
   await turso.execute({ sql: `UPDATE players SET name = ? WHERE uuid = ?`, args: [name, uuid] });
 }
 
+export async function isNameTaken(name: string, excludeUuid: string): Promise<boolean> {
+  const res = await turso.execute({
+    sql: `SELECT 1 FROM players WHERE name = ? AND uuid != ? LIMIT 1`,
+    args: [name, excludeUuid],
+  });
+  return res.rows.length > 0;
+}
+
 export async function updateElo(
   uuid: string,
   newElo: number,

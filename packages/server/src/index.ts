@@ -406,10 +406,16 @@ io.on('connection', socket => {
 
   // ── Set name ──────────────────────────────────────────────────────────────
 
-  socket.on('set_name', (name: string) => {
+  socket.on('set_name', async (name: string) => {
     const error = validateName(name);
     if (error) { socket.emit('name_rejected', error); return; }
-    socket.data.name = name.trim();
+    const trimmed = name.trim();
+    const uuid = socket.data.uuid;
+    if (uuid && await db.isNameTaken(trimmed, uuid)) {
+      socket.emit('name_rejected', 'That name is already taken.');
+      return;
+    }
+    socket.data.name = trimmed;
     // Player record is created/updated in the DB only when they actually start a game.
   });
 
