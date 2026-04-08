@@ -29,6 +29,8 @@ const allowedOrigins = [CLIENT_ORIGIN, CLIENT_ORIGIN.replace('https://www.', 'ht
 const app = express();
 const httpServer = createServer(app);
 
+app.get('/health', (_req, res) => res.sendStatus(200));
+
 const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
   httpServer,
   { cors: { origin: allowedOrigins, methods: ['GET', 'POST'] } }
