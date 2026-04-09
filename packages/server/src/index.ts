@@ -408,7 +408,11 @@ io.on('connection', socket => {
     const gameId = socket.data.gameId;
     if (!gameId) return;
     const session = sessions.get(gameId);
-    if (!session || session.sockets.black) return; // only cancel if no opponent has joined
+    if (!session) return;
+    const myColor = getColorForSocket(session, socket.id);
+    if (!myColor) return;
+    const opponentColor: Color = myColor === 'white' ? 'black' : 'white';
+    if (session.sockets[opponentColor]) return; // only cancel if no opponent has joined
     if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
     openGames.delete(gameId);
     sessions.delete(gameId);
