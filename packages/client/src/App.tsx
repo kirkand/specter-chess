@@ -108,9 +108,13 @@ export default function App() {
     socket.on('join_failed', (reason: string) => {
       setState(prev => {
         if (prev.phase === 'lobby') return { ...prev, joinError: reason };
-        if (prev.phase === 'connecting') {
+        if (prev.phase === 'connecting' || prev.phase === 'playing') {
           window.history.pushState({}, '', '/');
-          return { phase: 'lobby', openGames: [], joinError: reason };
+          const errorMsg = prev.phase === 'playing'
+            ? 'You were disconnected for too long — the game has ended.'
+            : reason;
+          socket.emit('get_open_games');
+          return { phase: 'lobby', openGames: [], joinError: errorMsg };
         }
         return prev;
       });
