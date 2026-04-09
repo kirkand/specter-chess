@@ -451,7 +451,7 @@ function LobbyScreen({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '0.5rem 2rem 1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 2rem 1.5rem' }}>
       <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '-0.75rem' }} />
       <h1 style={{ fontSize: '2rem', margin: 0 }}>Specter Chess</h1>
 
