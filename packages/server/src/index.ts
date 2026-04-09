@@ -85,6 +85,16 @@ const sessions = new Map<string, GameSession>();
 const openGames = new Map<string, { createdAt: number; timeControl: number; hostName: string; hostElo: number; hostUuid: string | undefined }>();
 let onlineCount = 0;
 
+const MAX_CONCURRENT_GAMES = 3;
+
+function activeGameCount(uuid: string): number {
+  let count = 0;
+  for (const session of sessions.values()) {
+    if ((session.uuids.white === uuid || session.uuids.black === uuid) && !session.game.isGameOver) count++;
+  }
+  return count;
+}
+
 async function broadcastStats() {
   io.emit('stats_update', { onlineCount, gamesPlayed: await db.getGamesPlayed() });
 }
@@ -424,6 +434,10 @@ io.on('connection', socket => {
   // ── Create game ───────────────────────────────────────────────────────────
 
   socket.on('create_game', async ({ timeControl, private: isPrivate }: { timeControl: number; private: boolean }) => {
+    if (socket.data.uuid && activeGameCount(socket.data.uuid) >= MAX_CONCURRENT_GAMES) {
+      socket.emit('join_failed', 'You already have too many active games.');
+      return;
+    }
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let gameId = '';
     for (let i = 0; i < 6; i++) gameId += chars[Math.floor(Math.random() * chars.length)];
@@ -503,6 +517,11 @@ io.on('connection', socket => {
 
     if (session.sockets.white && session.sockets.black) { socket.emit('join_failed', 'Game is already full.'); return; }
 
+    if (socket.data.uuid && activeGameCount(socket.data.uuid) >= MAX_CONCURRENT_GAMES) {
+      socket.emit('join_failed', 'You already have too many active games.');
+      return;
+    }
+
     // Prevent a player from joining their own game as the opponent
     const hostColor2: Color = session.sockets.white ? 'white' : 'black';
     if (uuid && uuid === session.uuids[hostColor2]) { socket.emit('join_failed', 'You cannot join your own game.'); return; }
@@ -552,6 +571,10 @@ io.on('connection', socket => {
 
   socket.on('create_bot_game', async ({ difficulty, timeControl }: { difficulty: BotDifficulty; timeControl: number }) => {
     if (!socket.data.name) { socket.emit('join_failed', 'Set a name before playing.'); return; }
+    if (socket.data.uuid && activeGameCount(socket.data.uuid) >= MAX_CONCURRENT_GAMES) {
+      socket.emit('join_failed', 'You already have too many active games.');
+      return;
+    }
 
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let gameId = '';
