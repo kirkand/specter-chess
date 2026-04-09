@@ -251,6 +251,17 @@ function scheduleBotMove(gameId: string, session: GameSession) {
       for (const move of candidates) {
         if (session.game.attemptMove(botColor, move) === null) { moved = true; break; }
       }
+
+      // All perspective-FEN candidates were rejected by the true board (e.g. the bot
+      // didn't see a hidden check and generated moves that don't escape it). Retry
+      // with the true board FEN so the bot can always find a legal move when one exists.
+      if (!moved) {
+        const trueCandidates = getBotMoveCandidates(session.game.getFen(), session.botDifficulty!, 'b');
+        for (const move of trueCandidates) {
+          if (session.game.attemptMove(botColor, move) === null) { moved = true; break; }
+        }
+      }
+
       if (!moved) return;
 
       if (session.game.isGameOver) {
