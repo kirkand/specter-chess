@@ -3,6 +3,7 @@ import { Chessboard } from 'react-chessboard';
 import { CHAT_EMOTES } from '@specter-chess/shared';
 import type { PlayerView, Color, Move, Square, SpyglassResult, Piece, ChatEmote } from '@specter-chess/shared';
 import { isSoundEnabled, setSoundEnabled } from './sounds';
+import { PIECE_INNER } from './ChessPieceSvg';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -16,6 +17,9 @@ const REJECTION_MESSAGES: Record<string, string> = {
 const MAX_BOARD_SIZE = 520;
 const ANIM_DURATION = 650;
 const TRAIL_DURATION = 350; // flame streak lives slightly longer than the 200 ms slide
+const DISSOLVE_DUR = 400;
+const MATERIALIZE_DUR = 400;
+const REVEAL_PAUSE = 300; // pause after materialize before the attack slide begins
 
 let nextAnimId = 0;
 
@@ -95,6 +99,8 @@ function buildPosition(view: PlayerView): Record<string, string> {
 // ─── Captured pieces ─────────────────────────────────────────────────────────
 
 const PIECE_DISPLAY_ORDER: string[] = ['queen', 'rook', 'bishop', 'knight', 'pawn'];
+
+const PIECE_TYPE_ABBR: Record<string, string> = { king: 'K', queen: 'Q', rook: 'R', bishop: 'B', knight: 'N', pawn: 'P' };
 
 const UNICODE_PIECE: Record<string, string> = {
   'white-queen': '♕', 'white-rook': '♖', 'white-bishop': '♗', 'white-knight': '♘', 'white-pawn': '♙',
@@ -216,6 +222,16 @@ export function GameBoard({
   } | null>(null);
   // Fade-out overlay for the captured own piece (shown while the attacker slides in).
   const [capturedOverlay, setCapturedOverlay] = useState<{ square: Square; piece: Piece } | null>(null);
+  // Dissolve/materialize overlay for the capturing piece reveal (phases 1 and 2).
+  const [captureRevealOverlay, setCaptureRevealOverlay] = useState<{
+    phase: 'dissolve' | 'materialize';
+    dissolveSquare: Square;
+    materializeSquare: Square;
+    piece: Piece;
+    capturedPieceFen: string | null;
+    confirmedSquare: Square;
+    lostEntry: { square: Square; piece: Piece } | null;
+  } | null>(null);
   // Flame trail segments rendered as SVG overlays during capture slides.
   const [flameTrails, setFlameTrails] = useState<{ id: number; from: Square; to: Square }[]>([]);
   const [showEmotePicker, setShowEmotePicker] = useState(false);
@@ -307,29 +323,37 @@ export function GameBoard({
         )?.square;
       })() : undefined;
 
-      if (fromSq && captureEntry && fromSq !== captureEntry.square) {
-        // Two-step animation:
-        //   leg 1: stale-position → fromSquare  (slide, 200 ms) + flame trail
-        //   pause: 200 ms
-        //   leg 2: fromSquare → capture-square  (slide, 200 ms) + flame trail
-        //
-        // Keep the captured piece in the position during leg 1 + pause so it stays
-        // visible. At leg 2 start, remove it from position and start the fade overlay.
-        setCaptureAnim({
+      if (fromSq && captureEntry && fromSq !== captureEntry.square && prevVisible) {
+        // Three-phase animation:
+        //   phase 1: spooky dissolve out from stale position (DISSOLVE_DUR ms)
+        //   phase 2: spooky materialize in at true position (MATERIALIZE_DUR ms)
+        //   phase 3: slide from true position → capture square + flame trail
+        const capturedPieceFen = lostEntry ? pieceToFen(lostEntry.piece) : null;
+        setCaptureRevealOverlay({
+          phase: 'dissolve',
+          dissolveSquare: prevVisible,
+          materializeSquare: fromSq,
+          piece: captureEntry.piece,
+          capturedPieceFen,
           confirmedSquare: captureEntry.square,
-          fromSquare: fromSq,
-          capturedPieceFen: lostEntry ? pieceToFen(lostEntry.piece) : null,
+          lostEntry: lostEntry ?? null,
         });
-        if (prevVisible) addTrail(prevVisible, fromSq); // leg 1 trail
-        const t = setTimeout(() => {
-          setCaptureAnim(null);
-          addTrail(fromSq, captureEntry.square); // leg 2 trail
+        const t1 = setTimeout(() => {
+          setCaptureRevealOverlay(prev => prev ? { ...prev, phase: 'materialize' } : null);
+        }, DISSOLVE_DUR);
+        const t2 = setTimeout(() => {
+          setCaptureRevealOverlay(null);
+          setCaptureAnim({ confirmedSquare: captureEntry.square, fromSquare: fromSq, capturedPieceFen });
+          addTrail(fromSq, captureEntry.square);
           if (lostEntry) {
             setCapturedOverlay({ square: captureEntry.square, piece: lostEntry.piece });
             setTimeout(() => setCapturedOverlay(null), 200);
           }
-        }, 400); // 200 ms slide + 200 ms pause
-        return () => clearTimeout(t);
+        }, DISSOLVE_DUR + MATERIALIZE_DUR + REVEAL_PAUSE);
+        const t3 = setTimeout(() => {
+          setCaptureAnim(null);
+        }, DISSOLVE_DUR + MATERIALIZE_DUR + REVEAL_PAUSE + 50);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
       }
 
       // Single-step: the attacker slides directly from its stale position to the
@@ -398,21 +422,29 @@ export function GameBoard({
 
   const position = useMemo(() => {
     const pos = buildPosition(view);
+    if (captureRevealOverlay) {
+      // Remove the capturing piece from the board during dissolve/materialize phases
+      // (the overlay handles rendering it). Keep the captured piece visible.
+      delete pos[captureRevealOverlay.confirmedSquare];
+      if (captureRevealOverlay.capturedPieceFen) {
+        pos[captureRevealOverlay.confirmedSquare] = captureRevealOverlay.capturedPieceFen;
+      }
+    }
     if (captureAnim) {
-      // Move the capturing piece to the intermediate square for the first slide leg.
+      // Move the capturing piece to fromSquare so react-chessboard slides it to
+      // confirmedSquare when captureAnim is cleared (phase 3 slide leg).
       const capturingFen = pos[captureAnim.confirmedSquare];
       if (capturingFen) {
         delete pos[captureAnim.confirmedSquare];
         pos[captureAnim.fromSquare] = capturingFen;
       }
-      // Keep the captured own piece visible in the position during phase 1 so it
-      // doesn't disappear before the attacker arrives.
+      // Keep the captured own piece visible during the brief captureAnim window.
       if (captureAnim.capturedPieceFen) {
         pos[captureAnim.confirmedSquare] = captureAnim.capturedPieceFen;
       }
     }
     return pos;
-  }, [view, captureAnim]);
+  }, [view, captureAnim, captureRevealOverlay]);
 
   const isTurn = view.isMyTurn;
   const canSpyglass = isTurn && !view.spyglassUsedThisTurn && view.plyCount > 0;
@@ -772,6 +804,35 @@ export function GameBoard({
             </svg>
           );
         })}
+
+        {/* Dissolve/materialize overlays for the capturing piece reveal */}
+        {captureRevealOverlay && (() => {
+          const sq = captureRevealOverlay.phase === 'dissolve'
+            ? captureRevealOverlay.dissolveSquare
+            : captureRevealOverlay.materializeSquare;
+          const { top, left } = squareToPixel(sq, playerColor, squareSize);
+          const { piece } = captureRevealOverlay;
+          const anim = captureRevealOverlay.phase === 'dissolve'
+            ? `capture-dissolve ${DISSOLVE_DUR}ms ease forwards`
+            : `capture-materialize ${MATERIALIZE_DUR}ms ease forwards`;
+          const pieceKey = `${piece.color === 'white' ? 'w' : 'b'}${PIECE_TYPE_ABBR[piece.type]}`;
+          return (
+            <div
+              key={captureRevealOverlay.phase}
+              style={{
+                position: 'absolute',
+                top,
+                left,
+                width: squareSize,
+                height: squareSize,
+                animation: anim,
+                pointerEvents: 'none',
+                zIndex: 11,
+              }}
+              dangerouslySetInnerHTML={{ __html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45" width="${squareSize}" height="${squareSize}">${PIECE_INNER[pieceKey]}</svg>` }}
+            />
+          );
+        })()}
 
         {/* Fade-out overlay for the captured own piece while the attacker slides in */}
         {capturedOverlay && (() => {
