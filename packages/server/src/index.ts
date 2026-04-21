@@ -902,8 +902,8 @@ io.on('connection', socket => {
     const color = getColorForSocket(session, socket.id);
     if (!color) return;
     const opponent: Color = color === 'white' ? 'black' : 'white';
-    // If the opponent is waiting for my response to their rematch request, notify them
-    if (session.rematchRequestedBy === opponent) {
+    // Notify opponent if game is over and they're still in the post-game screen
+    if (session.game.isGameOver) {
       const opponentSocketId = session.sockets[opponent];
       if (opponentSocketId) io.to(opponentSocketId).emit('opponent_disconnected');
     }
@@ -963,17 +963,23 @@ io.on('connection', socket => {
     delete session.sockets[color];
 
     if (opponentSocketId) {
-      // Give the disconnected player 40 seconds to reconnect before ending the game
-      io.to(opponentSocketId).emit('opponent_reconnecting');
-      if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
-      session.cleanupHandle = setTimeout(() => {
-        // Disconnected player forfeits — count as a loss for them
-        session.game.declareTimeout(color);
-        recordGameResult(gameId, session);
-        pushViews(gameId);
+      if (session.game.isGameOver) {
+        // Game already ended — no reconnect grace period needed, just notify opponent immediately
         io.to(opponentSocketId).emit('opponent_disconnected');
         sessions.delete(gameId);
-      }, 40 * 1000);
+      } else {
+        // Give the disconnected player 40 seconds to reconnect before ending the game
+        io.to(opponentSocketId).emit('opponent_reconnecting');
+        if (session.cleanupHandle) clearTimeout(session.cleanupHandle);
+        session.cleanupHandle = setTimeout(() => {
+          // Disconnected player forfeits — count as a loss for them
+          session.game.declareTimeout(color);
+          recordGameResult(gameId, session);
+          pushViews(gameId);
+          io.to(opponentSocketId).emit('opponent_disconnected');
+          sessions.delete(gameId);
+        }, 40 * 1000);
+      }
     } else {
       sessions.delete(gameId);
     }
