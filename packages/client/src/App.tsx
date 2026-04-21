@@ -458,6 +458,7 @@ function LobbyScreen({
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 2rem 1.5rem' }}>
       <img src="/logo.svg" alt="Specter Chess logo" style={{ height: '5rem', width: 'auto', marginBottom: '-0.75rem' }} />
       <h1 style={{ fontSize: '2rem', margin: 0 }}>Specter Chess</h1>
+      <p style={{ fontSize: '0.9rem', opacity: 0.6, margin: 0, fontWeight: 'bold', fontStyle: 'italic' }}>The game of chess deduction</p>
 
       {serverStats && (
         <div style={{ fontSize: '0.8rem', opacity: 0.45, display: 'flex', gap: '1rem' }}>
@@ -511,7 +512,7 @@ function LobbyScreen({
             {
               img: '/rule1-hidden-move.svg',
               alt: 'Hidden move illustration',
-              text: "Specter Chess tests your anticipation abilities. Your opponent's most recent move is hidden to you.",
+              text: "Specter Chess tests your deduction abilities. Your opponent's most recent move is hidden to you.",
             },
             {
               img: '/rule2-spyglass.svg',
